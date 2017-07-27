@@ -1,0 +1,29 @@
+{
+  "name": "queue-fs",
+  "version": "1.0.0",
+  "description": "A promise-based queuing system to deal with file operations",
+  "main": "index.js",
+  "dependencies": {
+    "fluent-ffmpeg": "^2.1.0",
+    "fs-extra": "^1.0.0",
+    "ssh2": "^0.5.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/vdiez/queue-fs.git"
+  },
+  "keywords": [
+    "queue",
+    "file"
+  ],
+  "author": "Victor Diez",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vdiez/queue-fs/issues"
+  },
+  "homepage": "https://github.com/vdiez/queue-fs#readme"
+}
