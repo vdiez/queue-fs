@@ -1,0 +1,12 @@
+**/*.mp4
+**/*.mxf
+**/*.swp
+**/*.log
+**/*.pyc
+**/*.iml
+.idea/
+node_modules/
+bower_components/
+build/
+config.js
+aws.json
