@@ -13,7 +13,7 @@ let parse_xml = function (params) {
 
                     if (tmp) {
                         let eng = tmp.text().trim().toLowerCase();
-                        if (eng) result.update = {"info.eng": eng};
+                        if (eng) result.update = {info: {eng: eng}};
                     }
                 }
                 catch (e) {}

@@ -10,8 +10,8 @@ module.exports = function(actions, db, config) {
 
     if (!actions.hasOwnProperty('monitor')) {
         actions.monitor = function (params) {
-            if (params.wamp && params.wamp.session && params.type && params.clip_id && params.stat && main_file(params.type, params.extension))
-                return params.wamp.session.call('update_clips', [], {clip_ids: params.clip_id, type: params.type, origin: params.origin || "", box: params.box || "", event: params.event || "pending", size: params.stat.size, info: params.data || 0});
+            if (params.wamp && params.type && params.clip_id && params.stat && main_file(params.type, params.extension))
+                return params.wamp.publish('update_clip', [], {clip_ids: params.clip_id, type: params.type, origin: params.origin || "", event: params.event || "delivered", size: params.stat.size, info: params.data || 0});
         }
     }
     return actions;

@@ -1,37 +1,33 @@
 let aws = require('aws-sdk');
 let fs = require('fs');
-aws.config.loadFromPath('./aws.json');
+let instances = {};
 
-let S3 = new aws.S3();
-
-function create_bucket(name) {
-    return new Promise(function (resolve, reject) {
-        S3.createBucket({Bucket: name}, function(err, data) {
-            if (err && err.name !== "BucketAlreadyOwnedByYou") reject(err);
-            else resolve();
-        });
-    });
-}
-
-function file_exists(bucket, key, size) {
-    return new Promise(function (resolve, reject) {
-        S3.headObject({Bucket: bucket, Key: key}, function(err, data) {
-            if (err) resolve();
-            else {
-                if (data.ContentLength == size) reject("File already exists");
-                else resolve();
-            }
-        })
-    });
-}
-
-module.exports = function(actions) {
+module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('aws_upload')) {
         actions.aws_upload = function(params) {
             if (!params.bucket) throw "Bucket not specified";
-            return create_bucket(params.bucket)
+            if (!params.credentials) throw "Credentials path not specified";
+
+            aws.config.loadFromPath(params.credentials || config.aws_credentials);
+            if (!instances.hasOwnProperty(params.credentials)) instances[params.credentials] = new aws.S3();
+            let S3 = instances[params.credentials];
+
+            return new Promise(function (resolve, reject) {
+                    S3.createBucket({Bucket: params.bucket}, function(err, data) {
+                        if (err && err.name !== "BucketAlreadyOwnedByYou") reject(err);
+                        else resolve();
+                    });
+                })
                 .then(function () {
-                    return file_exists(params.bucket, params.filename, params.stat.size)
+                    return new Promise(function (resolve, reject) {
+                        S3.headObject({Bucket: params.bucket, Key: params.filename}, function(err, data) {
+                            if (err) resolve();
+                            else {
+                                if (data.ContentLength == params.stat.size) reject("File already exists");
+                                else resolve();
+                            }
+                        })
+                    });
                 })
                 .then(function () {
                     return new Promise(function (resolve, reject) {

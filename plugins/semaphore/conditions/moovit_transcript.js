@@ -13,9 +13,9 @@ let parse_xml = function (params) {
 
                     if (tmp) {
                         let transcript = tmp.text().trim().toLowerCase();
-                        if (transcript === "required") result.update = {"info.transcript": true};
+                        if (transcript === "required") result.update = {info: {transcript: true}};
                     }
-                    if (!result.hasOwnProperty('update')) result.update = {"info.transcript": false};
+                    if (!result.hasOwnProperty('update')) result.update = {info: {transcript: false}};
                 }
                 catch (e) {}
             }

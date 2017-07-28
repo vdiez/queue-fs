@@ -28,7 +28,7 @@ let parse_xml = function (params) {
                             }
                         }
                     }
-                    if (content_type) result.update = {"fields.type": content_type};
+                    if (content_type) result.update = {fields: {type: content_type}};
                 }
                 catch (e) {}
             }
