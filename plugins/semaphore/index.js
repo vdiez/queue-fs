@@ -6,9 +6,19 @@ let no_db = false;
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('semaphore')) {
         actions.semaphore = function(params) {
-            if (!config.db_semaphore) no_db = true;
-            let timeout, timeout_publish;
-            return Promise.resolve(require("./conditions/" + params.condition)(params))
+            if (!config || !config.db_semaphore) no_db = true;
+            let timeout, timeout_publish, condition;
+
+            if (typeof params.condition === "function") condition = params.condition;
+            else {
+                try {
+                    condition = require("./conditions/" + params.condition);
+                }
+                catch(e) {}
+            }
+            if (!condition) throw params.condition + " is not a recognized semaphore.";
+
+            return Promise.resolve(condition(params))
                 .then((result) => {
                     if (params.timeout) {
                         timeout = setTimeout(function () {
