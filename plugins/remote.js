@@ -44,7 +44,7 @@ module.exports = function(actions, db, config) {
                                         servers[id] = null;
                                         reject2("Connection lost");
                                     })
-                                    .connect({host: params.host, username: params.username || config.username, password: params.password || config.password, readyTimeout: 60000});
+                                    .connect({host: params.host, username: params.username || config && config.username, password: params.password || config && config.password, readyTimeout: 60000});
                             });
                         }
                     })

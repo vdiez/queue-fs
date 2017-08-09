@@ -1,10 +1,10 @@
 module.exports = function(actions, db, config) {
     function main_file(type, extension) {
-        if (config.main_file && config.main_file[type]) {
+        if (config && config.main_file && config.main_file[type]) {
             let main_files = [].concat(config.main_file[type]);
             return main_files.includes(extension.toLowerCase());
         }
-        let defaults = [].concat(config.default_main_file || ".mxf");
+        let defaults = [].concat(config && config.default_main_file || ".mxf");
         return defaults.includes(extension.toLowerCase());
     }
 

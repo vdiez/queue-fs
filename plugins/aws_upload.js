@@ -8,7 +8,7 @@ module.exports = function(actions, db, config) {
             if (!params.bucket) throw "Bucket not specified";
             if (!params.credentials) throw "Credentials path not specified";
 
-            aws.config.loadFromPath(params.credentials || config.aws_credentials);
+            aws.config.loadFromPath(params.credentials || config && config.aws_credentials);
             if (!instances.hasOwnProperty(params.credentials)) instances[params.credentials] = new aws.S3();
             let S3 = instances[params.credentials];
 
