@@ -1,16 +1,18 @@
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let VERBOSE_LEVEL = 2;
+let moment = require('moment');
+let VERBOSE_LEVEL = 0;
 
-function ERROR() {VERBOSE_LEVEL >= 0 && console.log.apply(console, arguments);}
-function WARN() {VERBOSE_LEVEL >= 1 && console.log.apply(console, arguments);}
-function DEBUG() {VERBOSE_LEVEL >= 2 && console.log.apply(console, arguments);}
+function ERROR(args) {VERBOSE_LEVEL >= 1 && console.log.apply(console, [moment().format()].concat(args));}
+function WARN(args) {VERBOSE_LEVEL >= 2 && console.log.apply(console, [moment().format()].concat(args));}
+function DEBUG(args) {VERBOSE_LEVEL >= 3 && console.log.apply(console, [moment().format()].concat(args));}
 
 let queue = {};
 let functions = {};
 
 module.exports = function(db, config) {
+    VERBOSE_LEVEL = config && config.verbosity || 0;
     return function(file, actions, description) {
         actions = [].concat(actions);
         let promises = [];
@@ -114,8 +116,8 @@ module.exports = function(db, config) {
                         WARN("Failed " + params.description + ". Error: " + reason);
                         let inheritance = {};
                         if (critical) {
-                            inheritance.critical_failed = true;
-                            reject({error: reason, path: params.path});
+                            if (i < actions.length-1) inheritance.critical_failed = true;
+                            reject(reason);
                         }
                         else resolve({error: reason, path: params.path});
 
