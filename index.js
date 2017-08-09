@@ -12,6 +12,7 @@ let queue = {};
 let functions = {};
 
 module.exports = function(db, config) {
+    config = config || {};
     VERBOSE_LEVEL = config && config.verbosity || 0;
     return function(file, actions, description) {
         actions = [].concat(actions);
