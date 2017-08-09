@@ -7,11 +7,11 @@ let queue_counter = 0;
 function escape_params(params) {
     return {
         source: '"' + params.source.replace(/"/g, "\\\"") + '"',
-        target: '"' + params.target.replace(/"/g, "\\\"") + '"',
+        target: params.target ? '"' + params.target.replace(/"/g, "\\\"") + '"' : "",
         dirname: '"' + params.dirname.replace(/"/g, "\\\"") + '"',
         filename: '"' + params.filename.replace(/"/g, "\\\"") + '"',
         path: '"' + params.path.replace(/"/g, "\\\"") + '"',
-        extension: '"' + params.extension.replace(/"/g, "\\\"") + '"'
+        extension: params.extension.replace(/"/g, "\\\"")
     }
 }
 module.exports = function(actions, db, config) {
