@@ -10,11 +10,14 @@ function DEBUG(args) {VERBOSE_LEVEL >= 3 && console.log.apply(console, [moment()
 
 let queue = {};
 let functions = {};
+let hostdata = {};
+let db;
 
-module.exports = function(db, config) {
+module.exports = function(config, callback) {
     config = config || {};
-    VERBOSE_LEVEL = config && config.verbosity || 0;
-    return function(file, actions, description) {
+    VERBOSE_LEVEL = config.verbosity || 0;
+
+    let enqueue_file = function(file, actions, description) {
         actions = [].concat(actions);
         let promises = [];
         let configuration;
@@ -134,5 +137,81 @@ module.exports = function(db, config) {
         }
 
         return Promise.all(promises);
+    };
+
+    let db_promise;
+    let transfer;
+
+    if (config.db_url) {
+        db_promise = (require('mongodb').MongoClient).connect(config.db_url)
+            .then(function (con) {
+                if (con && config.files_collection) {
+                    db = con;
+                    return db.createCollection(config.files_collection)
+                        .then(function () {
+                            return db.collection(config.files_collection).updateMany({}, {$set: {started: []}});
+                        })
+                        .then(function() {
+                            if (config.takers && config.servers && config.orchestrator_root && config.taker_root) {
+                                transfer = (require('./transfer'))(db.collection(config.files_collection));
+                                for (let pool in config.servers) {
+                                    if (config.servers.hasOwnProperty(pool)) {
+                                        transfer.add_servers_pool(pool, servers[pool]);
+                                    }
+                                }
+                                for (let taker in config.takers) {
+                                    if (config.takers.hasOwnProperty(taker) && config.takers[taker].priorities && config.takers[taker].paths && config.takers[taker].boxes) {
+                                        transfer.add_taker(config.takers[taker], {
+                                            name: taker,
+                                            orchestrator_root: config.orchestrator_root,
+                                            taker_root: config.taker_root,
+                                            default_user: config.username,
+                                            default_password: config.password,
+                                            boxes_realm: config.boxes_realm,
+                                            max_retries: config.max_retries || 5
+                                        });
+                                    }
+                                }
+                            }
+                            else console.log("Transfers module disabled: Missing mandatory parameters.");
+                        })
+                }
+            })
     }
+    else console.log("Transfers module disabled");
+
+    return Promise.resolve(db_promise)
+        .then(function() {
+            if (config.monitoring_http_port) {
+                let express = require('express');
+                let bodyParser = require('body-parser');
+                let http = require('http');
+                let app = express();
+                app.use(bodyParser.json());
+                app.use(bodyParser.urlencoded({extended: false}));
+                let monitor = require('./monitor')(db, hostdata, config.files_collection, config.watched_partitions);
+                app.use('/monitor', monitor);
+                let server = http.createServer(app);
+                server.listen(config.monitoring_http_port);
+                server.on("close", () => console.log("HTTP server closed"));
+                server.on("error", (err) => console.log("HTTP server error: " + err));
+                server.on("listening", () => console.log("HTTP server listening."));
+            }
+        })
+        .then(function() {
+            let return_object = {
+                get_status: () => hostdata,
+                add: enqueue_file,
+                get_transfers_module: () => {
+                    if (typeof transfer === "undefined") throw "Transfers module disabled";
+                    return transfer;
+                }
+
+            };
+
+            if(typeof callback == 'function') callback(undefined, return_object);
+            else return return_object;
+        })
+        .catch((err) => console.log("Error initializing queue-fs: " + err));
+
 };
