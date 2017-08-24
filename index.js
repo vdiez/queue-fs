@@ -156,7 +156,7 @@ module.exports = function(config, callback) {
                                 transfer = (require('./transfer'))(db.collection(config.files_collection));
                                 for (let pool in config.servers) {
                                     if (config.servers.hasOwnProperty(pool)) {
-                                        transfer.add_servers_pool(pool, servers[pool]);
+                                        transfer.add_servers_pool(pool, config.servers[pool]);
                                     }
                                 }
                                 for (let taker in config.takers) {
