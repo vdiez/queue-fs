@@ -189,7 +189,7 @@ module.exports = function(config, callback) {
                 let app = express();
                 app.use(bodyParser.json());
                 app.use(bodyParser.urlencoded({extended: false}));
-                let monitor = require('./monitor')(db, hostdata, config.files_collection, config.watched_partitions);
+                let monitor = require('./monitor')(db, hostdata, enqueue_file, config.files_collection, config.watched_partitions);
                 app.use('/monitor', monitor);
                 let server = http.createServer(app);
                 server.listen(config.monitoring_http_port);
