@@ -5,6 +5,7 @@ let transfer_agents = {};
 let moment = require('moment');
 let servers;
 let pool_queue = {};
+let transfer_agents = {};
 
 let next = function(pool){
     if (!servers[pool].length) return console.log("Pool of servers '" + pool + "' does not have any server configured");
