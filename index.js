@@ -168,7 +168,7 @@ module.exports = function(config, callback) {
                                             name: taker,
                                             orchestrator_root: config.orchestrator_root,
                                             taker_root: config.taker_root,
-                                            default_user: config.username,
+                                            default_username: config.username,
                                             default_password: config.password,
                                             boxes_realm: config.boxes_realm,
                                             max_retries: config.max_retries || 5
