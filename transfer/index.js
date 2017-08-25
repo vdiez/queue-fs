@@ -198,8 +198,8 @@ module.exports = function(collection) {
             });
     };
 
-    function add_taker(name, taker, config) {
-        if (!transfer_agents.hasOwnProperty(taker)) transfer_agents[taker] = new Transfer(taker, config);
+    function add_taker(taker, config) {
+        if (!transfer_agents.hasOwnProperty(config.name)) transfer_agents[config.name] = new Transfer(taker, config);
         else return "Taker " + name + " already exists";
     }
 
