@@ -136,7 +136,10 @@ module.exports = function(config, callback) {
             }));
         }
 
-        return Promise.all(promises);
+        return Promise.all(promises)
+            .then(() => {
+                if (typeof transfer !== "undefined") transfer.add_transfer(file);
+            });
     };
 
     let db_promise;
