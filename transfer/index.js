@@ -158,7 +158,7 @@ module.exports = function(config) {
                     let syncs = [];
                     let parameters = {type: "scp"};
                     for (let i = 0; i < self.taker.boxes.length; i++) {
-                        if (i == box) continue;
+                        if (i === box) continue;
                         parameters.host = self.taker.boxes[i].ip;
                         parameters.username = self.taker.boxes[i].username || config.default_username;
                         parameters.password = self.taker.boxes[i].password || config.default_password;
@@ -189,7 +189,7 @@ module.exports = function(config) {
                     self.failures[path]++;
                     if (self.failures[path] > config.max_retries) {
                         self.current_box++;
-                        if (self.current_box = self.taker.boxes.length) self.current_box = 0;
+                        if (self.current_box === self.taker.boxes.length) self.current_box = 0;
                         else self.failures[path] = 0;
                     }
                     if (err && err.disconnected) console.log("Box " + self.name + (box + 1) + " is not connected.");
