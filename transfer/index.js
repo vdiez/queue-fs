@@ -2,7 +2,7 @@ let fs = require('fs-extra');
 let sprintf = require('sprintf-js').sprintf;
 let autobahn = require('autobahn');
 let moment = require('moment');
-let servers;
+let servers = {};
 let pool_queue = {};
 let transfer_agents = {};
 
