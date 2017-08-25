@@ -3,13 +3,12 @@ let connections = {};
 let servers = {};
 
 module.exports = function(params) {
-    if (!params.cmd) throw "SSH ERROR: Missing command line";
-    if (!params.host) throw "SSH ERROR: Missing hostname";
-    if (!params.username) throw "SSH ERROR: Missing username";
-    if (!params.password) throw "SSH ERROR: Missing password";
-    let id = params.id || params.host;
-
     return new Promise(function(resolve, reject) {
+        if (!params.cmd) reject("SSH ERROR: Missing command line");
+        if (!params.host) reject("SSH ERROR: Missing hostname");
+        if (!params.username) reject("SSH ERROR: Missing username");
+        if (!params.password) reject("SSH ERROR: Missing password");
+        let id = params.id || params.host;
         connections[id] = Promise.resolve(connections[id])
             .then(function() {
                 if (servers[id]) return servers[id];
@@ -64,6 +63,7 @@ module.exports = function(params) {
                         }
                     })
                 });
-            });
+            })
+            .catch((err) => console.log("SSH module error: " + err));
     });
 };

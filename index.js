@@ -156,7 +156,15 @@ module.exports = function(config, callback) {
                         })
                         .then(function() {
                             if (config.takers && config.servers && config.orchestrator_root && config.taker_root) {
-                                transfer = (require('./transfer'))(db.collection(config.files_collection));
+                                transfer = (require('./transfer'))({
+                                    orchestrator_root: config.orchestrator_root,
+                                    taker_root: config.taker_root,
+                                    default_username: config.default_username,
+                                    default_password: config.default_password,
+                                    boxes_realm: config.boxes_realm,
+                                    max_retries: config.max_retries || 5,
+                                    collection: db.collection(config.files_collection)
+                                });
                                 for (let pool in config.servers) {
                                     if (config.servers.hasOwnProperty(pool)) {
                                         transfer.add_servers_pool(pool, config.servers[pool]);
@@ -164,15 +172,7 @@ module.exports = function(config, callback) {
                                 }
                                 for (let taker in config.takers) {
                                     if (config.takers.hasOwnProperty(taker) && config.takers[taker].priorities && config.takers[taker].paths && config.takers[taker].boxes) {
-                                        transfer.add_taker(config.takers[taker], {
-                                            name: taker,
-                                            orchestrator_root: config.orchestrator_root,
-                                            taker_root: config.taker_root,
-                                            default_username: config.username,
-                                            default_password: config.password,
-                                            boxes_realm: config.boxes_realm,
-                                            max_retries: config.max_retries || 5
-                                        });
+                                        transfer.add_taker(taker, config.takers[taker]);
                                     }
                                 }
                             }

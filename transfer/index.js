@@ -19,10 +19,10 @@ let next = function(pool){
     }
 };
 
-module.exports = function(collection) {
-    function Transfer(taker, config) {
+module.exports = function(config) {
+    function Transfer(name, taker) {
+        this.name = name;
         this.taker = taker;
-        this.config = config;
         this.current_box = 0;
         this.queues = new Array(taker.paths.length).fill(1).map((_, idx) => idx);
         this.wamp = new Array(taker.boxes.length).fill(1);
@@ -46,7 +46,7 @@ module.exports = function(collection) {
                                 .then(() => {})
                                 .catch(() => {})
                                 .then(function() {
-                                    (self.failures[path] > self.config.max_retries) || self.empty_queue ? setTimeout(function() {self.go() }, 10000) : self.go();
+                                    (self.failures[path] > config.max_retries) || self.empty_queue ? setTimeout(function() {self.go() }, 10000) : self.go();
                                     return path;
                                 });
                             resolve();
@@ -58,14 +58,14 @@ module.exports = function(collection) {
     Transfer.prototype.get_next_transfer = function (filter, priority = 0) {
         let self = this;
         let query = self.taker.priorities[priority];
-        query.done = {$ne: self.config.name};
-        query.started = {$ne: self.config.name};
+        query.done = {$ne: self.name};
+        query.started = {$ne: self.name};
         if (filter) {
             for (let field in filter) {
                 if (filter.hasOwnProperty(field)) query[field] = filter[field];
             }
         }
-        return collection.findOneAndUpdate(query, {$addToSet: {started: self.config.name}})
+        return config.collection.findOneAndUpdate(query, {$addToSet: {started: self.name}})
             .then(function(result) {
                 if (result.value) {
                     self.empty_queue = false;
@@ -86,9 +86,9 @@ module.exports = function(collection) {
         return self.get_next_transfer(self.taker.paths[path].filter)
             .then(function(transfer) {
                 current_transfer = transfer;
-                console.log("Next transfer to " + self.config.name + (box + 1) + " is file " + current_transfer.filename);
-                transfer.source = sprintf(self.config.orchestrator_root, transfer);
-                transfer.target = sprintf(self.config.taker_root, transfer);
+                console.log("Next transfer to " + self.name + (box + 1) + " is file " + current_transfer.filename);
+                transfer.source = sprintf(config.orchestrator_root, transfer);
+                transfer.target = sprintf(config.taker_root, transfer);
                 return new Promise(function(resolve, reject) {
                     fs.stat(transfer.source, function (err, stats) {
                         if (err) reject({exists: false});
@@ -98,18 +98,18 @@ module.exports = function(collection) {
             })
             .then(function() {
                 if (!self.wamp[box].session) {
-                    let connection = new autobahn.Connection({url: "ws://" + self.taker.boxes[box].ip, realm: self.config.boxes_realm, max_retries: 0});
+                    let connection = new autobahn.Connection({url: "ws://" + self.taker.boxes[box].ip, realm: config.boxes_realm, max_retries: 0});
                     let wamp = {connection: connection,session: undefined};
-                    if (!self.config.boxes_realm || self.taker.boxes[box].passive) return wamp;
+                    if (!config.boxes_realm || self.taker.boxes[box].passive) return wamp;
 
                     return new Promise(function(resolve, reject) {
                         connection.onopen = function (session) {
-                            console.log("Connected to " + self.config.name + (box + 1));
+                            console.log("Connected to " + self.name + (box + 1));
                             wamp.session = session;
                             resolve(wamp);
                         };
                         connection.onclose = function (reason, details) {
-                            //console.log("Connection lost to " + self.config.name + (box + 1) + ". Reason: " + reason);
+                            //console.log("Connection lost to " + self.name + (box + 1) + ". Reason: " + reason);
                             wamp.session = undefined;
                             resolve(wamp);
                         };
@@ -127,13 +127,13 @@ module.exports = function(collection) {
             })
             .then(function(file) {
                 if (file) {
-                    console.log("Skipping lftp transfer to " + self.config.name + (box + 1) + ". File " + current_transfer.filename + " already exists");
+                    console.log("Skipping lftp transfer to " + self.name + (box + 1) + ". File " + current_transfer.filename + " already exists");
                     return;
                 }
-                console.log("Enqueuing transfer to " + self.config.name + (box + 1) + " of file " + current_transfer.filename);
+                console.log("Enqueuing transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
                 return new Promise((resolve, reject) => {
                     pool_queue[pool].push((server) => {
-                        console.log("Starting transfer to " + self.config.name + (box + 1) + " of file " + current_transfer.filename);
+                        console.log("Starting transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
                         if (typeof servers[pool][server].counter === "undefined") servers[pool][server].counter = 0;
                         servers[pool][server].counter++;
 
@@ -144,7 +144,7 @@ module.exports = function(collection) {
                             route_idx: path,
                             server: servers[pool][server],
                             transfer: current_transfer,
-                            config: self.config
+                            config: config
                         })
                             .then(val => {resolve(val); servers[pool][server].failed = false;})
                             .catch(err => {reject(err); servers[pool][server].failed = true; setTimeout(() => servers[pool][server].failed = false, 1000);})
@@ -156,50 +156,52 @@ module.exports = function(collection) {
             .then(function() {
                 if (!self.taker.boxes[box].passive) {
                     let syncs = [];
-                    let parameters = {username: self.config.username, password: self.config.password, type: "scp"};
+                    let parameters = {type: "scp"};
                     for (let i = 0; i < self.taker.boxes.length; i++) {
                         if (i == box) continue;
                         parameters.host = self.taker.boxes[i].ip;
+                        parameters.username = self.taker.boxes[i].username || config.default_username;
+                        parameters.password = self.taker.boxes[i].password || config.default_password;
                         if (self.wamp[box].session) syncs.push(self.wamp[box].session.call('copy_file', [parameters, current_transfer.target]));
                     }
                     Promise.all(syncs)
                         .then(function (results) {
                             for (let i = 0; i < results.length; i++) {
-                                if (results[i].error) console.log("Could not sync " + self.config.name + (box + 1) + " with neighbour boxes. Error: " + JSON.stringify(results[i].message))
+                                if (results[i].error) console.log("Could not sync " + self.name + (box + 1) + " with neighbour boxes. Error: " + JSON.stringify(results[i].message))
                             }
                         })
                         .catch(function (err) {
-                            console.log("Error syncing " + self.config.name + (box + 1) + " with neighbours: " + err);
+                            console.log("Error syncing " + self.name + (box + 1) + " with neighbours: " + err);
                         });
                 }
                 self.failures[path] = 0;
-                console.log(current_transfer.filename + " completed correctly to box " + self.config.name + (box + 1));
-                return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.config.name}, $addToSet: {done: self.config.name}});
+                console.log(current_transfer.filename + " completed correctly to box " + self.name + (box + 1));
+                return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}});
             })
             .catch(function(err) {
                 if (err && err.empty_queue) self.empty_queue = true;
                 if (err && err.exists === false) {
                     console.log("Cancelled transfer to box " + self.taker.boxes[box] + " of missing file: " + current_transfer.filename);
-                    return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.config.name}, $addToSet: {done: self.config.name}})
-                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.config.name + (box + 1) + ": " + err)});
+                    return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}})
+                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
                 }
                 else {
                     self.failures[path]++;
-                    if (self.failures[path] > self.config.max_retries) {
+                    if (self.failures[path] > config.max_retries) {
                         self.current_box++;
                         if (self.current_box = self.taker.boxes.length) self.current_box = 0;
                         else self.failures[path] = 0;
                     }
-                    if (err && err.disconnected) console.log("Box " + self.config.name + (box + 1) + " is not connected.");
-                    else console.log("Transfer of " + current_transfer.source + " to box " + self.config.name + (box + 1) + " failed with: " + JSON.stringify(err));
-                    return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.taker}})
-                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.config.name + (box + 1) + ": " + err)});
+                    if (err && err.disconnected) console.log("Box " + self.name + (box + 1) + " is not connected.");
+                    else console.log("Transfer of " + current_transfer.source + " to box " + self.name + (box + 1) + " failed with: " + JSON.stringify(err));
+                    return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.taker}})
+                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
                 }
             });
     };
 
-    function add_taker(taker, config) {
-        if (!transfer_agents.hasOwnProperty(config.name)) transfer_agents[config.name] = new Transfer(taker, config);
+    function add_taker(name, taker) {
+        if (!transfer_agents.hasOwnProperty(name)) transfer_agents[name] = new Transfer(name, taker);
         else return "Taker " + name + " already exists";
     }
 
@@ -223,7 +225,7 @@ module.exports = function(collection) {
             console.log("File not queued for transfer: Missing mandatory fields");
             return;
         }
-        return collection.insertOne({clip_id: file.clip_id, type: file.type, extension: file.extension, filename: file.filename, created: moment(file.stat && file.stat.ctime).format('YYYYMMDDHHmmssSSS')})
+        return config.collection.insertOne({clip_id: file.clip_id, type: file.type, extension: file.extension, filename: file.filename, created: moment(file.stat && file.stat.ctime).format('YYYYMMDDHHmmssSSS')})
     }
 
 
