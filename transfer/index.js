@@ -194,7 +194,7 @@ module.exports = function(config) {
                     }
                     if (err && err.disconnected) console.log("Box " + self.name + (box + 1) + " is not connected.");
                     else console.log("Transfer of " + current_transfer.source + " to box " + self.name + (box + 1) + " failed with: " + JSON.stringify(err));
-                    return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.taker}})
+                    return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}})
                         .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
                 }
             });
