@@ -15,7 +15,7 @@ function escape_params(params) {
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('remote')) {
         actions.remote = function(params) {
-            params.username = params.username || config.default_user;
+            params.username = params.username || config.default_username;
             params.password = params.password || config.default_password;
             params.parallel_connections = params.parallel_connections || config.parallel_connections || 5;
             params.cmd = sprintf(params.cmd, escape_params(params));
