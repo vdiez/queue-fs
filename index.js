@@ -142,48 +142,46 @@ module.exports = function(config, callback) {
             });
     };
 
-    let db_promise;
     let transfer;
 
-    if (config.db_url) {
-        db_promise = (require('mongodb').MongoClient).connect(config.db_url)
-            .then(function (con) {
-                if (con && config.files_collection) {
-                    db = con;
-                    return db.createCollection(config.files_collection)
-                        .then(function () {
-                            return db.collection(config.files_collection).updateMany({}, {$set: {started: []}});
-                        })
-                        .then(function() {
-                            if (config.takers && config.servers && config.orchestrator_root && config.taker_root) {
-                                transfer = (require('./transfer'))({
-                                    orchestrator_root: config.orchestrator_root,
-                                    taker_root: config.taker_root,
-                                    default_username: config.default_username,
-                                    default_password: config.default_password,
-                                    boxes_realm: config.boxes_realm,
-                                    max_retries: config.max_retries || 5,
-                                    collection: db.collection(config.files_collection)
-                                });
-                                for (let pool in config.servers) {
-                                    if (config.servers.hasOwnProperty(pool)) {
-                                        transfer.add_servers_pool(pool, config.servers[pool]);
-                                    }
-                                }
-                                for (let taker in config.takers) {
-                                    if (config.takers.hasOwnProperty(taker) && config.takers[taker].priorities && config.takers[taker].paths && config.takers[taker].boxes) {
-                                        transfer.add_taker(taker, config.takers[taker]);
-                                    }
+    return Promise.resolve()
+        .then(function() {
+            if (config.db) db = config.db;
+            else if (config.db_url) return (require('mongodb').MongoClient).connect(config.db_url).then(con => db = con);
+            else console.log("Transfers module disabled");
+        })
+        .then(function() {
+            if (db && config.files_collection) {
+                return db.createCollection(config.files_collection)
+                    .then(function () {
+                        return db.collection(config.files_collection).updateMany({}, {$set: {started: []}});
+                    })
+                    .then(function () {
+                        if (config.takers && config.servers && config.orchestrator_root && config.taker_root) {
+                            transfer = (require('./transfer'))({
+                                orchestrator_root: config.orchestrator_root,
+                                taker_root: config.taker_root,
+                                default_username: config.default_username,
+                                default_password: config.default_password,
+                                boxes_realm: config.boxes_realm,
+                                max_retries: config.max_retries || 5,
+                                collection: db.collection(config.files_collection)
+                            });
+                            for (let pool in config.servers) {
+                                if (config.servers.hasOwnProperty(pool)) {
+                                    transfer.add_servers_pool(pool, config.servers[pool]);
                                 }
                             }
-                            else console.log("Transfers module disabled: Missing mandatory parameters.");
-                        })
-                }
-            })
-    }
-    else console.log("Transfers module disabled");
-
-    return Promise.resolve(db_promise)
+                            for (let taker in config.takers) {
+                                if (config.takers.hasOwnProperty(taker) && config.takers[taker].priorities && config.takers[taker].paths && config.takers[taker].boxes) {
+                                    transfer.add_taker(taker, config.takers[taker]);
+                                }
+                            }
+                        }
+                        else console.log("Transfers module disabled: Missing mandatory parameters.");
+                    })
+            }
+        })
         .then(function() {
             if (config.monitoring_http_port) {
                 let express = require('express');
