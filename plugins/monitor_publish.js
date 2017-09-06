@@ -8,8 +8,8 @@ module.exports = function(actions, db, config) {
         return defaults.includes(extension.toLowerCase());
     }
 
-    if (!actions.hasOwnProperty('monitor')) {
-        actions.monitor = function (params) {
+    if (!actions.hasOwnProperty('monitor_publish')) {
+        actions.monitor_publish = function (params) {
             if (params.wamp && params.type && params.clip_id && params.stat && main_file(params.type, params.extension))
                 return params.wamp.publish('update_clip', [], {clip_ids: params.clip_id, type: params.type, origin: params.origin || "", event: params.event || "delivered", size: params.stat.size, info: params.data || 0});
         }
