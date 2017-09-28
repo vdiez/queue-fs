@@ -2,15 +2,16 @@ let fs = require('fs-extra');
 let sprintf = require('sprintf-js').sprintf;
 let autobahn = require('autobahn');
 let moment = require('moment');
+let winston = require('winston');
 let servers = {};
 let pool_queue = {};
 let transfer_agents = {};
 
 let next = function(pool){
-    if (!servers[pool].length) return console.log("Pool of servers '" + pool + "' does not have any server configured");
+    if (!servers[pool].length) return winston.error("Pool of servers '" + pool + "' does not have any server configured");
     let server = servers[pool].reduce((min, x, i, arr) => (min < 0 || x < (arr[min].counter || 0)) && !servers[pool][i].failed ? i : min, -1);
     if (server < 0 || servers[pool][server].counter >= (servers[pool][server].concurrency || 5)) {
-        console.log("Pool of servers '" + pool + "' does not have any available server at the moment. Retrying in 10 seconds...");
+        winston.warn("Pool of servers '" + pool + "' does not have any available server at the moment. Retrying in 10 seconds...");
         return setTimeout(() => next(pool), 10000);
     }
     else {
@@ -86,7 +87,7 @@ module.exports = function(config) {
         return self.get_next_transfer(self.taker.paths[path].filter)
             .then(function(transfer) {
                 current_transfer = transfer;
-                console.log("Next transfer to " + self.name + (box + 1) + " is file " + current_transfer.filename);
+                winston.info("Next transfer to " + self.name + (box + 1) + " is file " + current_transfer.filename);
                 transfer.source = sprintf(config.orchestrator_root, transfer);
                 transfer.target = sprintf(config.taker_root, transfer);
                 return new Promise(function(resolve, reject) {
@@ -104,12 +105,12 @@ module.exports = function(config) {
 
                     return new Promise(function(resolve, reject) {
                         connection.onopen = function (session) {
-                            console.log("Connected to " + self.name + (box + 1));
+                            winston.debug("Connected to " + self.name + (box + 1));
                             wamp.session = session;
                             resolve(wamp);
                         };
                         connection.onclose = function (reason, details) {
-                            //console.log("Connection lost to " + self.name + (box + 1) + ". Reason: " + reason);
+                            winston.debug("Connection lost to " + self.name + (box + 1) + ". Reason: " + reason);
                             wamp.session = undefined;
                             resolve(wamp);
                         };
@@ -127,13 +128,13 @@ module.exports = function(config) {
             })
             .then(function(file) {
                 if (file) {
-                    console.log("Skipping lftp transfer to " + self.name + (box + 1) + ". File " + current_transfer.filename + " already exists");
+                    winston.info("Skipping lftp transfer to " + self.name + (box + 1) + ". File " + current_transfer.filename + " already exists");
                     return;
                 }
-                console.log("Enqueuing transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
+                winston.debug("Enqueuing transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
                 return new Promise((resolve, reject) => {
                     pool_queue[pool].push((server) => {
-                        console.log("Starting transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
+                        winston.info("Starting transfer to " + self.name + (box + 1) + " of file " + current_transfer.filename);
                         if (typeof servers[pool][server].counter === "undefined") servers[pool][server].counter = 0;
                         servers[pool][server].counter++;
 
@@ -153,7 +154,8 @@ module.exports = function(config) {
                     next(pool);
                 });
             })
-            .then(function() {
+            .then(function(result) {
+                if (result) winston.info(result);
                 if (!self.taker.boxes[box].passive) {
                     let syncs = [];
                     let parameters = {type: "scp"};
@@ -167,23 +169,23 @@ module.exports = function(config) {
                     Promise.all(syncs)
                         .then(function (results) {
                             for (let i = 0; i < results.length; i++) {
-                                if (results[i].error) console.log("Could not sync " + self.name + (box + 1) + " with neighbour boxes. Error: " + JSON.stringify(results[i].message))
+                                if (results[i].error) winston.error("Could not sync " + self.name + (box + 1) + " with neighbour boxes. Error: " + JSON.stringify(results[i].message))
                             }
                         })
                         .catch(function (err) {
-                            console.log("Error syncing " + self.name + (box + 1) + " with neighbours: " + err);
+                            winston.error("Error syncing " + self.name + (box + 1) + " with neighbours: ", err);
                         });
                 }
                 self.failures[path] = 0;
-                console.log(current_transfer.filename + " completed correctly to box " + self.name + (box + 1));
+                winston.info(current_transfer.filename + " completed correctly to box " + self.name + (box + 1));
                 return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}});
             })
             .catch(function(err) {
                 if (err && err.empty_queue) self.empty_queue = true;
                 if (err && err.exists === false) {
-                    console.log("Cancelled transfer to box " + self.taker.boxes[box] + " of missing file: " + current_transfer.filename);
+                    winston.error("Cancelled transfer to box " + self.taker.boxes[box] + " of missing file: " + current_transfer.filename);
                     return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}})
-                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
+                        .catch(function(err) {winston.error("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
                 }
                 else {
                     self.failures[path]++;
@@ -192,10 +194,10 @@ module.exports = function(config) {
                         if (self.current_box === self.taker.boxes.length) self.current_box = 0;
                         else self.failures[path] = 0;
                     }
-                    if (err && err.disconnected) console.log("Box " + self.name + (box + 1) + " is not connected.");
-                    else console.log("Transfer of " + current_transfer.source + " to box " + self.name + (box + 1) + " failed with: " + JSON.stringify(err));
+                    if (err && err.disconnected) winston.error("Box " + self.name + (box + 1) + " is not connected.");
+                    else winston.error("Transfer of " + current_transfer.source + " to box " + self.name + (box + 1) + " failed with: ", err);
                     return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}})
-                        .catch(function(err) {console.log("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
+                        .catch(function(err) {winston.error("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": ", err)});
                 }
             });
     };
@@ -222,7 +224,7 @@ module.exports = function(config) {
 
     function add_transfer(file) {
         if (!file.clip_id || !file.type || !file.extension || !file.filename) {
-            console.log("File not queued for transfer: Missing mandatory fields");
+            winston.error("File not queued for transfer: Missing mandatory fields. Data received: ", file);
             return;
         }
         return config.collection.insertOne({clip_id: file.clip_id, type: file.type, extension: file.extension, filename: file.filename, created: moment(file.stat && file.stat.ctime).format('YYYYMMDDHHmmssSSS')})

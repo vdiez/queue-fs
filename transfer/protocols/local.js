@@ -14,7 +14,7 @@ LOCAL.prototype.transfer_file = function (src, dst, progress) {
                 return new Promise(function(resolve2, reject2) {
                     fs.stat(src, function (err, stats) {
                         if (err) {
-                            resolve("Stat failed. Skipping transfer of: " + src);
+                            reject({exists: false});
                             resolve2();
                         }
                         else {

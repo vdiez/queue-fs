@@ -2,6 +2,7 @@ let Client = require('ftp');
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
+let winston = require('winston');
 
 function FTP(params) {
     let self = this;
@@ -19,23 +20,27 @@ FTP.prototype.open_connection = function() {
     let self = this;
     if (self.is_connected()) return Promise.resolve();
 
-    console.log("Opening FTP connection");
+    winston.debug("Opening FTP connection to " + self.params.host);
     return new Promise(function(resolve, reject) {
         self.client = new Client();
         self.client
             .on('ready', function () {
+                winston.debug("FTP connection to " + self.params.host + " established.");
                 resolve();
             })
             .on('error', function (err) {
                 self.client = undefined;
+                winston.error("Error on FTP connection " + self.params.host + ": " + err);
                 reject(err);
             })
             .on('end', function () {
                 self.client = undefined;
+                winston.debug("FTP connection to " + self.params.host + " ended.");
                 reject("Connection ended");
             })
             .on('close', function (err) {
                 self.client = undefined;
+                winston.debug("FTP connection to " + self.params.host + " closed.");
                 reject("Connection closed: " + err);
             })
             .connect(self.params);
@@ -53,7 +58,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                         return new Promise(function(resolve2, reject2) {
                             fs.stat(src, function (err, stats) {
                                 if (err) {
-                                    resolve("Stat failed. Skipping transfer of: " + src);
+                                    reject({exists: false});
                                     resolve2();
                                 }
                                 else {
@@ -103,7 +108,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                             });
                         });
                     })
-                    .catch((err) => {console.log("Error: "  + err); reject();});
+                    .catch((err) => {reject(err);});
             });
     });
 };

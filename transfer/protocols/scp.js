@@ -1,6 +1,7 @@
 let Client = require('ssh2').Client;
 let fs = require('fs-extra');
 let path = require('path');
+let winston = require('winston');
 
 function SCP(params) {
     let self = this;
@@ -21,30 +22,37 @@ SCP.prototype.open_connection = function() {
     let self = this;
     if (self.is_connected()) return Promise.resolve();
 
-    console.log("Opening SCP connection");
+    winston.debug("Opening SCP connection to " + self.params.host);
     return new Promise(function(resolve, reject) {
         self.client = new Client();
         self.client
             .on('ready', function () {
                 self.client.sftp(function (err, sftp) {
-                    if (err) reject(err);
+                    if (err) {
+                        winston.error("Error on SCP connection " + self.params.host + " when opening SFTP stream: " + err);
+                        reject(err);
+                    }
                     else {
+                        winston.debug("SCP connection to " + self.params.host + " established.");
                         self.sftp = sftp;
                         resolve();
                     }
                 });
             })
             .on('error', function (err) {
+                winston.error("Error on SCP connection " + self.params.host + ": " + err);
                 self.client = undefined;
                 self.sftp = undefined;
                 reject(err);
             })
             .on('end', function () {
+                winston.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
                 reject("Connection ended");
             })
             .on('close', function (err) {
+                winston.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
                 reject("Connection closed: " + err);
@@ -68,7 +76,7 @@ SCP.prototype.create_path = function (sftp, rel_path, cb) {
         if (err1) {
             sftp.mkdir(rel_path, function (err2) {
                 if (err2) {
-                    console.log("Error[%s] %s creating path: %s", err2.code, err2, rel_path);
+                    winston.debug("Error[" + err2.code + "] " + err2 + " creating path: " + rel_path + " on SCP connection " + self.params.host);
                     if (err2.code == 2) { // NO_SUCH_FILE
                         self.create_path(sftp, path.dirname(rel_path), function () {
                             self.create_path(sftp, rel_path, cb);
@@ -77,7 +85,7 @@ SCP.prototype.create_path = function (sftp, rel_path, cb) {
                     else cb(err2);
                 }
                 else {
-                    console.log("Created path: %s", rel_path);
+                    winston.debug("Created path: " + rel_path + " on SCP connection " + self.params.host);
                     cb();
                 }
             });
@@ -97,7 +105,7 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                         return new Promise(function(resolve2, reject2) {
                             fs.stat(src, function (err, stats) {
                                 if (err) {
-                                    resolve("Stat failed. Skipping transfer of: " + src);
+                                    reject({exists: false});
                                     resolve2();
                                 }
                                 else {
@@ -147,7 +155,7 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                             });
                         });
                     })
-                    .catch((err) => {console.log("Error: "  + err); reject();});
+                    .catch((err) => {reject(err);});
             });
     });
 };

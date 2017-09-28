@@ -1,4 +1,5 @@
 let Client = require('ssh2').Client;
+let winston = require('winston');
 let connections = {};
 let servers = {};
 
@@ -20,17 +21,18 @@ module.exports = function(params) {
                                 servers[id] = client;
                                 resolve2(client);
                             })
-                            .on('error', function (error) {
+                            .on('error', function (err) {
                                 servers[id] = null;
-                                reject2("Connection error: " + error);
+                                winston.error("SSH connection to host " + params.host + " failed with error: ", err);
+                                reject2("SSH connection error: " + err);
                             })
                             .on('end', function () {
                                 servers[id] = null;
-                                reject2("Connection ended");
+                                reject2("SSH connection ended to host " + params.host);
                             })
                             .on('close', function (error) {
                                 servers[id] = null;
-                                reject2("Connection lost");
+                                reject2("SSH connection lost to host " + params.host);
                             })
                             .connect({host: params.host, username: params.username, password: params.password, readyTimeout: 60000});
                     });
@@ -58,12 +60,12 @@ module.exports = function(params) {
                                     stream.write(params.password + '\n');
                                 }
                             }).stderr.on('data', function (data) {
-                                console.log("STDERR " + id + ": " + data);
+                                winston.error("SSH module: Error executing '" + params.cmd + "' on " + params.host + ": " + data);
                             });
                         }
                     })
                 });
             })
-            .catch((err) => console.log("SSH module error: " + err));
+            .catch((err) => winston.error("SSH module error: ", err));
     });
 };

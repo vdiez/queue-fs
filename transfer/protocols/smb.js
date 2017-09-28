@@ -1,6 +1,7 @@
 let Client = require('@marsaud/smb2');
 let fs = require('fs-extra');
 let path = require('path');
+let winston = require('winston');
 
 function SMB(params) {
     let self = this;
@@ -21,16 +22,20 @@ SMB.prototype.open_connection = function(){
     let self = this;
     if (self.is_connected()) return Promise.resolve();
 
-    console.log("Opening SMB connection");
+    winston.debug("Opening SMB connection to " + self.params.host);
     self.client = new Client(self.params);
 
     return new Promise(function(resolve, reject) {
         self.client.connect(function (err) {
             if (err) {
+                winston.error("Error on SMB connection " + self.params.share + ": " + err);
                 self.client = undefined;
                 reject(err);
             }
-            else resolve();
+            else {
+                winston.debug("SMB connection to " + self.params.share + " established.");
+                resolve();
+            }
         });
     });
 };
@@ -52,7 +57,7 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                         return new Promise(function(resolve2, reject2) {
                             fs.stat(src, function (err, stats) {
                                 if (err) {
-                                    resolve("Stat failed. Skipping transfer of: " + src);
+                                    reject({exists: false});
                                     resolve2();
                                 }
                                 else {
@@ -110,7 +115,7 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                             });
                         })
                     })
-                    .catch((err) => {console.log("Error: "  + err); reject();});
+                    .catch((err) => {reject(err);});
             });
     });
 };

@@ -1,6 +1,6 @@
 module.exports = function(actions) {
     if (!actions.hasOwnProperty('dummy')) {
-        actions.dummy = function(params) {
+        actions.dummy = function() {
             return new Promise(function(resolve, reject) {
                 setTimeout(function() {
                     resolve();

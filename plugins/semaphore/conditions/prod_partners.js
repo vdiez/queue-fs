@@ -1,19 +1,19 @@
 let fs = require('fs-extra');
 let xml = require('libxmljs');
 
-let parse_xml = function (params) {
-    let result = {query: {clip_id: params.clip_id, "fields.type": {$exists: true}}};
-    if (!params.extension.toLowerCase().endsWith('xml')) return result;
+let parse_xml = function (file) {
+    let result = {query: {clip_id: file.clip_id, "fields.type": {$exists: true}}};
+    if (!file.extension.toLowerCase().endsWith('xml')) return result;
     return new Promise(function (resolve, reject) {
-        fs.readFile(params.path, function (err, data) {
+        fs.readFile(file.path, function (err, data) {
             if (!err) {
                 try {
                     let content_type = false;
                     let json = xml.parseXmlString(data).root();
-                    let tmp = json.get("//UserField[@Header='ENG crew']");
+                    let tmp = json.get("//UserField[@Header='Competition']");
                     if (tmp) {
                         content_type = tmp.text().trim().toLowerCase();
-                        if (content_type) content_type = "uwc";
+                        if (content_type.includes("women")) content_type = "uwc";
                     }
                     else {
                         tmp = json.get("//UserField[@Header='Content Type']");

@@ -2,6 +2,7 @@ let express = require('express');
 let os = require('os');
 let sprintf = require('sprintf-js').sprintf;
 let path = require('path');
+let winston = require('winston');
 
 module.exports = function(db, hostdata, actions, files_collection, watched_partitions) {
     let router = express.Router();
@@ -130,11 +131,11 @@ module.exports = function(db, hostdata, actions, files_collection, watched_parti
             })
             .catch(function (err) {
                 delete cleaner_queues[partition.root];
-                console.log("Error automatic cleanup: " + err);
+                winston.error("Error automatic cleanup: ", err);
             });
     }
 
-    if (files_collection && watched_partitions && db) {
+    if (db && files_collection && watched_partitions) {
         setInterval(function () {
             try {
                 for (let partition in watched_partitions) {
@@ -151,7 +152,7 @@ module.exports = function(db, hostdata, actions, files_collection, watched_parti
                     }
                 }
             }
-            catch (e) {console.log("Error automatic cleaner: " + e);}
+            catch (e) {winston.error("Error automatic cleaner: ", e);}
         }, 10000);
     }
 

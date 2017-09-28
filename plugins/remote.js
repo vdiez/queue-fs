@@ -1,27 +1,34 @@
 let ssh = require('../helpers/ssh');
+let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let queue_counter = {};
 
-function escape_params(params) {
-    return {
-        source: '"' + params.source.replace(/"/g, "\\\"") + '"',
-        target: params.target ? '"' + params.target.replace(/"/g, "\\\"") + '"' : "",
-        dirname: '"' + params.dirname.replace(/"/g, "\\\"") + '"',
-        filename: '"' + params.filename.replace(/"/g, "\\\"") + '"',
-        path: '"' + params.path.replace(/"/g, "\\\"") + '"',
-        extension: params.extension.replace(/"/g, "\\\"")
-    }
-}
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('remote')) {
-        actions.remote = function(params) {
-            params.username = params.username || config.default_username;
-            params.password = params.password || config.default_password;
-            params.parallel_connections = params.parallel_connections || config.parallel_connections || 5;
-            params.cmd = sprintf(params.cmd, escape_params(params));
+        actions.remote = function(file, params) {
+            let source = file.dirname;
+            if (params.hasOwnProperty('source')) source = params.source;
+            source = sprintf(source, file);
+            if (!params.source_is_filename) source = path.join(source, file.filename);
+            if (params.hasOwnProperty('target')) {
+                let target = sprintf(params.target, file);
+                if (!params.target_is_filename) target = path.join(target, file.filename);
+            }
+
             if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
-            params.id = (params.host + queue_counter[params.host]++ % params.parallel_connections);
-            return ssh(params);
+            return ssh({
+                id: (params.host + queue_counter[params.host]++ % params.parallel_connections),
+                username: params.username || config.default_username,
+                password: params.password || config.default_password,
+                parallel_connections: params.parallel_connections || config.parallel_connections || 5,
+                cmd: sprintf(params.cmd, {
+                    source: '"' + source.replace(/"/g, "\\\"") + '"',
+                    target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
+                    dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
+                    filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
+                    path: '"' + file.path.replace(/"/g, "\\\"") + '"'
+                })
+            });
         };
     }
     return actions;

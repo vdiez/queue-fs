@@ -1,13 +1,18 @@
 let fs = require('fs-extra');
 let path = require('path');
+let sprintf = require('sprintf-js').sprintf;
 
 module.exports = function(actions) {
     if (!actions.hasOwnProperty('unhide')) {
-        actions.unhide = function(params) {
+        actions.unhide = function(file, params) {
             return new Promise(function (resolve, reject) {
                 if (path.basename(params.source).startsWith('.')) {
-                    params.target = path.join(path.dirname(params.source), path.basename(params.source).replace(/^\.*/, ''));
-                    fs.move(params.source, params.target, {overwrite: true}, function (err) {
+                    let source = file.dirname;
+                    if (params.hasOwnProperty('source')) source = params.source;
+                    source = sprintf(source, file);
+                    if (!params.source_is_filename) source = path.join(source, file.filename);
+                    let target = path.join(path.dirname(source), path.basename(source).replace(/^\.*/, ''));
+                    fs.move(source, target, {overwrite: true}, function (err) {
                         if (err) reject(err);
                         else resolve();
                     });
