@@ -35,6 +35,7 @@ module.exports = function(db, config, transfer) {
                     awaits.push(queues[dependencies[j]]);
                 }
 
+                winston.info("Action " + (actions[i].action.name || actions[i].action) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(function(results) {
                         if (failed_queues.filter(queue => dependencies.includes(queue)).length) throw {critical_failed: true};
@@ -53,6 +54,7 @@ module.exports = function(db, config, transfer) {
                                 }, actions[i].timer.timeout);
                             }
 
+                            winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
                             method(file, actions[i].params)
                                 .then(result => {
                                     if (timeout) clearTimeout(timeout);
