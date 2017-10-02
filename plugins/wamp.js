@@ -13,7 +13,7 @@ module.exports = function(actions, db, config) {
                             if (wamp_sessions.hasOwnProperty(key)) return wamp_sessions[key];
                             return new Promise(function(resolve2, reject2){
                                 let connect = function() {
-                                    let wamp = new autobahn.Connection({url: params.router, realm: params.realm, max_retries: 0});
+                                    let wamp = new autobahn.Connection({url: "ws://" + params.router, realm: params.realm, max_retries: 0});
                                     wamp.onopen = function (session) {
                                         wamp_sessions[key] = session;
                                         resolve2();

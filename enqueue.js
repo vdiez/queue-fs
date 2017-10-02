@@ -49,6 +49,7 @@ module.exports = function(db, config, transfer) {
                             if (actions[i].timer && actions[i].timer.action && actions[i].timer.timeout) {
                                 let effect = load_function(actions[i].timer.action);
                                 timeout = setTimeout(function () {
+                                    winston.info("Timeout for " + (actions[i].action.name || actions[i].action) + " on file " + file.path);
                                     effect(file, actions[i].timer.params);
                                     if (actions[i].timer.hard) reject_execution("timeout");
                                 }, actions[i].timer.timeout);
