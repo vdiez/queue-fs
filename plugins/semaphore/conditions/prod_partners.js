@@ -12,7 +12,7 @@ let parse_xml = function (file) {
                     let json = xml.parseXmlString(data).root();
                     let tmp = json.get("//UserField[@Header='Competition']") || json.get("//UserField[@Header='Content Type']") || json.get("//UserField[@Header='le_serie_title']");
 
-                    if (content_type) {
+                    if (tmp) {
                         content_type = tmp.text().trim().toLowerCase();
                         if (content_type.includes("women")) content_type = "uwc";
                         else if (content_type.includes("magazine")) content_type = "magazine";
