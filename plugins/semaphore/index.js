@@ -34,12 +34,12 @@ module.exports = function(actions, db, config) {
                                         if (result) resolve({value: result});
                                         else {
                                             setTimeout(poll, 5000);
-                                            winston.debug('Semaphore module: ' + file.filename + " still waiting for " + params.condition.name || params.condition + " condition to fulfil");
+                                            winston.debug('Semaphore module: ' + file.filename + " still waiting for " + (params.condition.name || params.condition) + " condition to fulfil");
                                         }
                                     })
                                     .catch(() => {
                                         setTimeout(poll, 5000);
-                                        winston.debug('Semaphore module: ' + file.filename + " still waiting for " + params.condition.name || params.condition + " condition to fulfil");
+                                        winston.debug('Semaphore module: ' + file.filename + " still waiting for " + (params.condition.name || params.condition) + " condition to fulfil");
                                     });
                             };
                             poll();
