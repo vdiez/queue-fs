@@ -5,10 +5,10 @@ let servers = {};
 
 module.exports = function(params) {
     return new Promise(function(resolve, reject) {
-        if (!params.cmd) reject("SSH ERROR: Missing command line");
-        if (!params.host) reject("SSH ERROR: Missing hostname");
-        if (!params.username) reject("SSH ERROR: Missing username");
-        if (!params.password) reject("SSH ERROR: Missing password");
+        if (!params.cmd) return reject("SSH ERROR: Missing command line");
+        if (!params.host) return reject("SSH ERROR: Missing hostname");
+        if (!params.username) return reject("SSH ERROR: Missing username");
+        if (!params.password) return reject("SSH ERROR: Missing password");
         let id = params.id || params.host;
         connections[id] = Promise.resolve(connections[id])
             .then(function() {

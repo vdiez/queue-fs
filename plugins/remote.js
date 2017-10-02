@@ -17,10 +17,10 @@ module.exports = function(actions, db, config) {
 
             if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
             return ssh({
-                id: (params.host + queue_counter[params.host]++ % params.parallel_connections),
+                id: (params.host + queue_counter[params.host]++ % (params.parallel_connections || 5)),
+                host: params.host,
                 username: params.username || config.default_username,
                 password: params.password || config.default_password,
-                parallel_connections: params.parallel_connections || config.parallel_connections || 5,
                 cmd: sprintf(params.cmd, {
                     source: '"' + source.replace(/"/g, "\\\"") + '"',
                     target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
