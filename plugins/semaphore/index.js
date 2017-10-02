@@ -1,10 +1,14 @@
 let memory_db = {};
 let no_db = false;
+let winston = require('winston');
 
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('semaphore')) {
         actions.semaphore = function(file, params) {
-            if (!config || !config.db_semaphore) no_db = true;
+            if (!config || !config.db_semaphore) {
+                no_db = true;
+                winston.info('Semaphore module using memory: Non persistent results');
+            }
             let condition;
 
             if (typeof params.condition === "function") condition = params.condition;
@@ -28,10 +32,14 @@ module.exports = function(actions, db, config) {
                                 Promise.resolve(check)
                                     .then((result) => {
                                         if (result) resolve({value: result});
-                                        else setTimeout(poll, 5000);
+                                        else {
+                                            setTimeout(poll, 5000);
+                                            winston.debug('Semaphore module: ' + file.filename + " still waiting for " + params.condition.name || params.condition + " condition to fulfil");
+                                        }
                                     })
                                     .catch(() => {
                                         setTimeout(poll, 5000);
+                                        winston.debug('Semaphore module: ' + file.filename + " still waiting for " + params.condition.name || params.condition + " condition to fulfil");
                                     });
                             };
                             poll();
