@@ -59,7 +59,7 @@ module.exports = function(db, config, transfer) {
                             }
 
                             winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
-                            method(file, actions[i].params)
+                            Promise.resolve(method(file, actions[i].params))
                                 .then(result => {
                                     if (timeout) clearTimeout(timeout);
                                     resolve_execution(result);
