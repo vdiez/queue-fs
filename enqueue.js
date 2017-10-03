@@ -7,6 +7,7 @@ module.exports = function(db, config, transfer) {
     config = config || {};
 
     function load_function(action) {
+        if (typeof action === "undefined") return;
         if (functions.hasOwnProperty(action)) return functions[action];
         else if (typeof action === "function") return action;
         else {
@@ -46,11 +47,13 @@ module.exports = function(db, config, transfer) {
                         return new Promise(function(resolve_execution, reject_execution) {
                             let timeout;
 
-                            if (actions[i].timer && actions[i].timer.action && actions[i].timer.timeout) {
-                                let effect = load_function(actions[i].timer.action);
+                            if (actions[i].timer && actions[i].timer.timeout) {
                                 timeout = setTimeout(function () {
                                     winston.info("Timeout for " + (actions[i].action.name || actions[i].action) + " on file " + file.path);
-                                    effect(file, actions[i].timer.params);
+                                    if (actions[i].timer.action) {
+                                        let effect = load_function(actions[i].timer.action);
+                                        if (effect) effect(file, actions[i].timer.params);
+                                    }
                                     if (actions[i].timer.hard) reject_execution("timeout");
                                 }, actions[i].timer.timeout);
                             }
