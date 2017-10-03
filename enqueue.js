@@ -43,7 +43,7 @@ module.exports = function(db, config, transfer) {
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        if  (actions[i].requisite && typeof actions[i].requisite === "function" && !actions[i].requisite(file)) return {does_not_apply: true};
+                        if  (actions[i].requisite && typeof actions[i].requisite === "function" && !actions[i].requisite(file)) throw {does_not_apply: true};
                         return new Promise(function(resolve_execution, reject_execution) {
                             let timeout;
 
