@@ -43,7 +43,7 @@ module.exports = function(db, config, transfer) {
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        if  (actions[i].requisite && typeof actions[i].requisite === "function" && !actions[i].requisite(file)) return 0;
+                        if  (actions[i].requisite && typeof actions[i].requisite === "function" && !actions[i].requisite(file)) return {does_not_apply: true};
                         return new Promise(function(resolve_execution, reject_execution) {
                             let timeout;
 
@@ -76,7 +76,11 @@ module.exports = function(db, config, transfer) {
                         return result;
                     })
                     .catch(function(reason) {
-                        if (actions[i].critical || (reason && reason.critical_failed)) {
+                        if (reason && reason.does_not_apply) {
+                            winston.error("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
+                            resolve({error: reason, path: file.path});
+                        }
+                        else if (actions[i].critical || (reason && reason.critical_failed)) {
                             if (actions[i].critical) winston.error("Critical action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
                             else winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
                             failed_queues.push(queue);
