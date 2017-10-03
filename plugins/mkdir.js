@@ -6,7 +6,7 @@ module.exports = function(actions) {
     if (!actions.hasOwnProperty('mkdir')) {
         actions.mkdir = function(file, params) {
             return new Promise(function (resolve, reject) {
-                if (params.hasOwnProperty('target')) {
+                if (params && params.hasOwnProperty('target')) {
                     let target = sprintf(params.target, file);
                     fs.ensureDir(path.dirname(target), function (err) {
                         if (err) reject(err);

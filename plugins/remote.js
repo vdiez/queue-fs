@@ -6,7 +6,9 @@ let queue_counter = {};
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('remote')) {
         actions.remote = function(file, params) {
+            if (!params) throw "Missing command line";
             let target, source = file.dirname;
+
             if (params.hasOwnProperty('source')) source = params.source;
             source = sprintf(source, file);
             if (!params.source_is_filename) source = path.join(source, file.filename);

@@ -7,9 +7,9 @@ module.exports = function(actions) {
         actions.symlink = function(file, params) {
             return new Promise(function (resolve, reject) {
                 let source = file.dirname;
-                if (params.hasOwnProperty('source')) source = params.source;
+                if (params && params.hasOwnProperty('source')) source = params.source;
                 source = sprintf(source, file);
-                if (!params.source_is_filename) source = path.join(source, file.filename);
+                if (!params || !params.source_is_filename) source = path.join(source, file.filename);
                 if (params.hasOwnProperty('target')) {
                     let target = sprintf(params.target, file);
                     if (!params.target_is_filename) target = path.join(target, file.filename);

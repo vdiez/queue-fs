@@ -7,10 +7,11 @@ let instances = {};
 module.exports = function(actions, db, config) {
     if (!actions.hasOwnProperty('aws_upload')) {
         actions.aws_upload = function(file, params) {
+            if (!params) throw "Missing parameters";
             if (!params.bucket) throw "Bucket not specified";
-            if (!params.credentials) throw "Credentials path not specified";
+            if (!params.credentials && !config.aws_credentials) throw "Credentials path not specified";
 
-            aws.config.loadFromPath(params.credentials || config && config.aws_credentials);
+            aws.config.loadFromPath(params.credentials || config.aws_credentials);
             if (!instances.hasOwnProperty(params.credentials)) instances[params.credentials] = new aws.S3();
             let S3 = instances[params.credentials];
 
