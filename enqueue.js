@@ -77,7 +77,7 @@ module.exports = function(db, config, transfer) {
                     })
                     .catch(function(reason) {
                         if (reason && reason.does_not_apply) {
-                            winston.error("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
+                            winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
                             resolve({error: reason, path: file.path});
                         }
                         else if (actions[i].critical || (reason && reason.critical_failed)) {
