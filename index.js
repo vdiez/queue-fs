@@ -44,6 +44,7 @@ module.exports = function(config, callback) {
             }
         })
         .then(function() {
+            let enqueue_file = require('./enqueue')(db, config, transfer);
             if (config.monitoring_http_port) {
                 let express = require('express');
                 let bodyParser = require('body-parser');
@@ -59,11 +60,9 @@ module.exports = function(config, callback) {
                 server.on("error", (err) => winston.error("HTTP server error: " + err));
                 server.on("listening", () => winston.info("HTTP server listening."));
             }
-        })
-        .then(function() {
             let return_object = {
                 get_status: () => hostdata,
-                add: require('./enqueue')(db, config, transfer),
+                add: enqueue_file,
                 get_transfers_module: () => {
                     if (typeof transfer === "undefined") throw "Transfers module disabled";
                     return transfer;
