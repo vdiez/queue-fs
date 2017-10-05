@@ -43,9 +43,9 @@ module.exports = function(db, config, transfer) {
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        if  (actions[i].requisite && typeof actions[i].requisite === "function" && !actions[i].requisite(file)) throw {does_not_apply: true};
                         return new Promise(function(resolve_execution, reject_execution) {
                             let timeout;
+                            winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
 
                             if (actions[i].timer && actions[i].timer.timeout) {
                                 timeout = setTimeout(function () {
@@ -58,8 +58,16 @@ module.exports = function(db, config, transfer) {
                                 }, actions[i].timer.timeout);
                             }
 
-                            winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
-                            Promise.resolve(method(file, actions[i].params))
+                            let requisite = true;
+                            if  (actions[i].requisite && typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
+                            Promise.resolve(requisite)
+                                .catch(() => {
+                                    throw {does_not_apply: true};
+                                })
+                                .then((result) => {
+                                    if (!result) throw {does_not_apply: true};
+                                    return method(file, actions[i].params);
+                                })
                                 .then(result => {
                                     if (timeout) clearTimeout(timeout);
                                     resolve_execution(result);
