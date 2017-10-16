@@ -14,7 +14,7 @@ module.exports = function(actions, db, config) {
                     let key = router + ":" + realm;
                     wamp_queue[key] = Promise.resolve(wamp_queue[key])
                         .then(function() {
-                            if (wamp_sessions.hasOwnProperty(key)) return wamp_sessions[key];
+                            if (wamp_sessions[key]) return wamp_sessions[key];
                             return new Promise(function(resolve2, reject2){
                                 let connect = function() {
                                     let wamp = new autobahn.Connection({url: "ws://" + router, realm: realm, max_retries: 0});
