@@ -183,8 +183,8 @@ module.exports = function(config) {
             .catch(function(err) {
                 if (err && err.empty_queue) self.empty_queue = true;
                 if (err && err.exists === false) {
-                    winston.error("Cancelled transfer to box " + self.taker.boxes[box] + " of missing file: " + current_transfer.filename);
-                    return collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}})
+                    winston.error("Cancelled transfer to box " + self.name + (box + 1) + " of missing file: " + current_transfer.filename);
+                    return config.collection.findOneAndUpdate({_id: current_transfer._id}, {$pull: {started: self.name}, $addToSet: {done: self.name}})
                         .catch(function(err) {winston.error("Error saving status of file " + current_transfer.filename + " to box " + self.name + (box + 1) + ": " + err)});
                 }
                 else {
@@ -223,11 +223,11 @@ module.exports = function(config) {
     }
 
     function add_transfer(file) {
-        if (!file.clip_id || !file.type || !file.extension || !file.filename) {
+        if (!file.clip_id || !file.type || !file.filename) {
             winston.error("File not queued for transfer: Missing mandatory fields. Data received: ", file);
             return;
         }
-        return config.collection.insertOne({clip_id: file.clip_id, type: file.type, extension: file.extension, filename: file.filename, created: moment(file.stat && file.stat.ctime).format('YYYYMMDDHHmmssSSS')})
+        return config.collection.insertOne({clip_id: file.clip_id, type: file.type, filename: file.filename, created: moment(file.stat && file.stat.ctime).format('YYYYMMDDHHmmssSSS')})
     }
 
 

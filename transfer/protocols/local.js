@@ -1,4 +1,6 @@
 let fs = require('fs-extra');
+let path = require('path');
+let sprintf = require('sprintf-js').sprintf;
 
 function LOCAL(params) {
     let self = this;
@@ -20,11 +22,11 @@ LOCAL.prototype.transfer_file = function (src, dst, progress) {
                         else {
                             fs.stat(dst, function (err, stats2) {
                                 if (!err && stats2.size == stats.size) {
-                                    resolve("File already exists. Skipping copy of: " + src);
+                                    resolve();
                                     resolve2();
                                 }
                                 else {
-                                    fs.ensureDir(path.dirname(dst), err => {
+                                    fs.ensureDir(path.posix.join(path.dirname(dst), '.tmp'), err => {
                                         if (err) {
                                             reject(err);
                                             resolve2();
@@ -46,10 +48,14 @@ LOCAL.prototype.transfer_file = function (src, dst, progress) {
                                                         }
                                                     });
 
-                                                    let writeStream = fs.createWriteStream(dst);
+                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+                                                    let writeStream = fs.createWriteStream(tmp);
                                                     writeStream.on('close', function () {
-                                                        resolve("Finished transfer of: " + src);
-                                                        resolve2();
+                                                        fs.move(tmp, dst, {overwrite: true}, function (err) {
+                                                            if (err) reject(err);
+                                                            else resolve();
+                                                            resolve2();
+                                                        });
                                                     });
                                                     writeStream.on('error', function (err) {
                                                         reject(err);
@@ -66,7 +72,7 @@ LOCAL.prototype.transfer_file = function (src, dst, progress) {
                                                             resolve2();
                                                         }
                                                         else {
-                                                            resolve("Finished symlinking of: " + src);
+                                                            resolve();
                                                             resolve2();
                                                         }
                                                     });

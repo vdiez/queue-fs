@@ -64,11 +64,11 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                                 else {
                                     self.client.size(dst, function (err, size) {
                                         if (!err && size == stats.size) {
-                                            resolve("File already exists. Skipping transfer of: " + src);
+                                            resolve();
                                             resolve2();
                                         }
                                         else {
-                                            self.client.mkdir(path.dirname(dst), true, function (err) {
+                                            self.client.mkdir(path.posix.join(path.dirname(dst), '.tmp'), true, function (err) {
                                                 if (err) {
                                                     reject(err);
                                                     resolve2();
@@ -86,7 +86,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                                                             if (progress) progress({current: transferred, size: stats.size, percentage: percentage});
                                                         }
                                                     });
-                                                    let tmp = path.join(path.dirname(dst), "." + path.basename(dst));
+                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
                                                     self.client.put(readStream, tmp, function (err) {
                                                         if (err) {
                                                             reject(err);
@@ -95,7 +95,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                                                         else {
                                                             self.client.rename(tmp, dst, function(err) {
                                                                 if (err) reject(err);
-                                                                else resolve("Finished transfer of: " + src);
+                                                                else resolve();
                                                                 resolve2();
                                                             });
                                                         }

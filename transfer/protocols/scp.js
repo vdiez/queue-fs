@@ -2,6 +2,7 @@ let Client = require('ssh2').Client;
 let fs = require('fs-extra');
 let path = require('path');
 let winston = require('winston');
+let sprintf = require('sprintf-js').sprintf;
 
 function SCP(params) {
     let self = this;
@@ -111,17 +112,17 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                                 else {
                                     self.sftp.stat(dst, function (err, stats2) {
                                         if (!err && stats2.size == stats.size) {
-                                            resolve("File already exists. Skipping transfer of: " + src);
+                                            resolve();
                                             resolve2();
                                         }
                                         else {
-                                            self.create_path(self.sftp, path.dirname(dst), function (err) {
+                                            self.create_path(self.sftp, path.posix.join(path.dirname(dst), '.tmp'), function (err) {
                                                 if (err) {
                                                     reject(err);
                                                     resolve2();
                                                 }
                                                 else {
-                                                    let tmp = path.join(path.dirname(dst), "." + path.basename(dst));
+                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
                                                     self.writeStream = self.sftp.createWriteStream(tmp);
                                                     self.writeStream.on('error', function (err) {
                                                         reject(err);
@@ -130,7 +131,7 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                                                     self.writeStream.on('close', function () {
                                                         self.sftp.rename(tmp, dst, function(err) {
                                                             if (err) reject(err);
-                                                            else resolve("Finished transfer of: " + src);
+                                                            else resolve();
                                                             resolve2();
                                                         });
                                                     });

@@ -2,6 +2,7 @@ let Client = require('@marsaud/smb2');
 let fs = require('fs-extra');
 let path = require('path');
 let winston = require('winston');
+let sprintf = require('sprintf-js').sprintf;
 
 function SMB(params) {
     let self = this;
@@ -63,12 +64,12 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                                 else {
                                     self.client.getSize(dst.replace(/\//g, "\\"), function (err, size) {
                                         if (!err && size == stats.size) {
-                                            resolve("File already exists. Skipping transfer of: " + src);
+                                            resolve();
                                             resolve2();
                                         }
                                         else {
                                             let path_creation = undefined;
-                                            let root_path = path.posix.dirname(dst);
+                                            let root_path = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
                                             if (root_path != "." && root_path != "/") {
                                                 path_creation = new Promise(function(resolve3, reject3) {
                                                     self.client.ensureDir(root_path.replace(/\//g, "\\"), function (err) {
@@ -80,14 +81,18 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
 
                                             Promise.resolve(path_creation)
                                                 .then(() => {
-                                                    self.client.createWriteStream(dst.replace(/\//g, "\\"), function (err, writeStream) {
+                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+                                                    self.client.createWriteStream(tmp.replace(/\//g, "\\"), function (err, writeStream) {
                                                         if (err) throw err;
                                                         else {
                                                             self.readStream = fs.createReadStream(src);
                                                             self.readStream.on('close', function () {
                                                                 self.readStream = undefined;
-                                                                resolve("Finished transfer of: " + src);
-                                                                resolve2();
+                                                                self.client.rename(tmp.replace(/\//g, "\\"), dst.replace(/\//g, "\\"), function(err) {
+                                                                    if (err) reject(err);
+                                                                    else resolve();
+                                                                    resolve2();
+                                                                });
                                                             });
                                                             let transferred = 0;
                                                             let percentage = 0;
@@ -108,7 +113,7 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                                                         }
                                                     });
                                                 })
-                                                .catch(() => {reject(); resolve2();});
+                                                .catch(() => {reject(err); resolve2();});
                                         }
                                     });
                                 }
