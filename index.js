@@ -1,81 +1,108 @@
-let hostdata = {};
-let db;
+let queues = {};
+let functions = {};
+let sprintf = require('sprintf-js').sprintf;
 let winston = require('winston');
 
-module.exports = function(config, callback) {
+module.exports = function(config) {
     config = config || {};
-    let transfer;
 
-    return Promise.resolve()
-        .then(function() {
-            if (config.db_url) return (require('mongodb').MongoClient).connect(config.db_url).then(con => db = con);
-            else winston.info("Transfers module disabled");
-        })
-        .then(function() {
-            if (db && config.files_collection) {
-                return db.createCollection(config.files_collection)
-                    .then(function () {
-                        return db.collection(config.files_collection).updateMany({}, {$set: {started: []}});
-                    })
-                    .then(function () {
-                        if (config.takers && config.servers && config.orchestrator_root && config.taker_root) {
-                            transfer = (require('./transfer'))({
-                                orchestrator_root: config.orchestrator_root,
-                                taker_root: config.taker_root,
-                                default_username: config.default_username,
-                                default_password: config.default_password,
-                                boxes_realm: config.boxes_realm,
-                                max_retries: config.max_retries || 5,
-                                collection: db.collection(config.files_collection)
-                            });
-                            for (let pool in config.servers) {
-                                if (config.servers.hasOwnProperty(pool)) {
-                                    transfer.add_servers_pool(pool, config.servers[pool]);
-                                }
-                            }
-                            for (let taker in config.takers) {
-                                if (config.takers.hasOwnProperty(taker) && config.takers[taker].priorities && config.takers[taker].paths && config.takers[taker].boxes) {
-                                    transfer.add_taker(taker, config.takers[taker]);
-                                }
-                            }
-                        }
-                        else winston.warn("Transfers module disabled: Missing mandatory parameters.");
-                    })
+    function load_function(action) {
+        if (typeof action === "undefined") return;
+        if (functions.hasOwnProperty(action)) return functions[action];
+        else if (typeof action === "function") return action;
+        else {
+            try {
+                require('./plugins/' + action)(functions, config);
+                if (functions.hasOwnProperty(action)) return functions[action];
             }
-        })
-        .then(function() {
-            let enqueue_file = require('./enqueue')(db, config, transfer);
-            if (config.monitoring_http_port) {
-                let express = require('express');
-                let bodyParser = require('body-parser');
-                let http = require('http');
-                let app = express();
-                app.use(bodyParser.json());
-                app.use(bodyParser.urlencoded({extended: false}));
-                let monitor = require('./monitor')(db, hostdata, enqueue_file, config.files_collection, config.watched_partitions);
-                app.use('/monitor', monitor);
-                let server = http.createServer(app);
-                server.listen(config.monitoring_http_port);
-                server.on("close", () => winston.warn("HTTP server closed"));
-                server.on("error", (err) => winston.error("HTTP server error: " + err));
-                server.on("listening", () => winston.info("HTTP server listening."));
-            }
-            let return_object = {
-                get_status: () => hostdata,
-                add: enqueue_file,
-                get_transfers_module: () => {
-                    if (typeof transfer === "undefined") throw "Transfers module disabled";
-                    return transfer;
+            catch(e) {}
+        }
+    }
+
+    return function(file, actions) {
+        actions = [].concat(actions);
+        let promises = [], failed_queues = [];
+
+        for (let i = 0; i < actions.length; i++) {
+            promises.push(new Promise(function(resolve, reject) {
+                let queue = file.path;
+                if (actions[i].hasOwnProperty('queue')) queue = sprintf(actions[i].queue, file);
+
+                let dependencies = [queue];
+                let awaits = [];
+                if (actions[i].hasOwnProperty('awaits')) dependencies = [].concat(actions[i].awaits);
+                for (let j = 0; j < dependencies.length; j++) {
+                    dependencies[j] = sprintf(dependencies[j], file);
+                    awaits.push(queues[dependencies[j]]);
                 }
 
-            };
+                winston.info("Action " + (actions[i].action.name || actions[i].action) + " enqueued on file " + file.path);
+                queues[queue] = Promise.all(awaits)
+                    .then(function(results) {
+                        if (failed_queues.filter(queue => dependencies.includes(queue)).length) throw {critical_failed: true};
+                        let method = load_function(actions[i].action);
+                        if (!method) throw actions[i].action + " is not recognized.";
 
-            if(typeof callback == 'function') callback(undefined, return_object);
-            else return return_object;
-        })
-        .catch((err) => {
-            if(typeof callback == 'function') callback(err);
-            else throw ("Error initializing queue-fs: " + err);
-        });
+                        return new Promise(function(resolve_execution, reject_execution) {
+                            let timeout;
+                            winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
 
+                            if (actions[i].timer && actions[i].timer.timeout) {
+                                timeout = setTimeout(function () {
+                                    winston.info("Timeout for " + (actions[i].action.name || actions[i].action) + " on file " + file.path);
+                                    if (actions[i].timer.action) {
+                                        let effect = load_function(actions[i].timer.action);
+                                        if (effect) effect(file, actions[i].timer.params);
+                                    }
+                                    if (actions[i].timer.hard) reject_execution("timeout");
+                                }, actions[i].timer.timeout);
+                            }
+
+                            let requisite = true;
+                            if  (actions[i].requisite && typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
+                            Promise.resolve(requisite)
+                                .catch(() => {
+                                    throw {does_not_apply: true};
+                                })
+                                .then((result) => {
+                                    if (!result) throw {does_not_apply: true};
+                                    return method(file, actions[i].params);
+                                })
+                                .then(result => {
+                                    if (timeout) clearTimeout(timeout);
+                                    resolve_execution(result);
+                                })
+                                .catch(error => {
+                                    if (timeout) clearTimeout(timeout);
+                                    reject_execution(error);
+                                });
+                        });
+                    })
+                    .then(function(result) {
+                        resolve();
+                        winston.info("Action " + (actions[i].action.name || actions[i].action) + " correctly completed on file " + file.path);
+                        return result;
+                    })
+                    .catch(function(reason) {
+                        if (reason && reason.does_not_apply) {
+                            winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
+                            resolve({error: reason, path: file.path});
+                        }
+                        else if (actions[i].critical || (reason && reason.critical_failed)) {
+                            if (actions[i].critical) winston.error("Critical action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
+                            else winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
+                            failed_queues.push(queue);
+                            reject(reason);
+                        }
+                        else {
+                            winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
+                            resolve({error: reason, path: file.path});
+                        }
+                        return reason;
+                    });
+            }));
+        }
+
+        return Promise.all(promises)
+    }
 };

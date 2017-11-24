@@ -2,7 +2,6 @@ let exec = require('child_process').exec;
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 
-
 module.exports = function(actions) {
     if (!actions.hasOwnProperty('local')) {
         actions.local = function(file, params) {

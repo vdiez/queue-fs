@@ -1,14 +1,37 @@
 let memory_db = {};
-let no_db = false;
 let winston = require('winston');
+let mongodb = require('mongodb').MongoClient;
 
-module.exports = function(actions, db, config) {
+module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('semaphore')) {
+        let db = false;
+
+        let connect = function() {
+            return new Promise(function(resolve, reject) {
+                if (!config.semaphore_db) {
+                    resolve();
+                    winston.info('Semaphore module using memory: Non persistent results');
+                }
+                if (db) resolve();
+                config.semaphore_collection = config.semaphore_collection || "semaphore";
+
+                mongodb.connect(config.semaphore_db, function (err, con) {
+                    if (err) {
+                        db = false;
+                        resolve();
+                        winston.error('MongoDB error while connecting: ', err);
+                    }
+                    db = con;
+                    db.on('close', () => {
+                        db = false;
+                        winston.error('MongoDB disconnected');
+                    });
+                    resolve();
+                });
+            });
+        };
+
         actions.semaphore = function(file, params) {
-            if (!config || !config.semaphore_collection) {
-                no_db = true;
-                winston.info('Semaphore module using memory: Non persistent results');
-            }
             let condition;
 
             if (typeof params.condition === "function") condition = params.condition;
@@ -20,15 +43,16 @@ module.exports = function(actions, db, config) {
             }
             if (!condition) throw params.condition + " is not a recognized semaphore.";
 
-            return Promise.resolve(condition(file))
+            return connect()
+                .then(() => Promise.resolve(condition(file)))
                 .then((result) => {
                     if (!result.query) throw "Semaphore condition missing query property.";
                     if (!result.update) {
                         return new Promise(function(resolve, reject) {
                             let poll = function() {
                                 let check;
-                                if (no_db) check = memory_db[JSON.stringify(result.query)];
-                                else check = db.collection(config.semaphore_collection).findOne(result.query);
+                                if (db) check = db.collection(config.semaphore_collection).findOne(result.query);
+                                else check = memory_db[JSON.stringify(result.query)];
                                 Promise.resolve(check)
                                     .then((result) => {
                                         if (result) resolve({value: result});
@@ -46,11 +70,11 @@ module.exports = function(actions, db, config) {
                         });
                     }
                     else {
-                        if (no_db) {
+                        if (db) return db.collection(config.semaphore_collection).findOneAndUpdate(result.query, {$set: result.update}, {upsert: true, returnOriginal: false});
+                        else {
                             memory_db[JSON.stringify(result.query)] = result.update;
                             return {value: result.update};
                         }
-                        else return db.collection(config.semaphore_collection).findOneAndUpdate(result.query, {$set: result.update}, {upsert: true, returnOriginal: false});
                     }
                 })
                 .then((result) => {

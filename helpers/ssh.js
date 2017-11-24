@@ -66,6 +66,6 @@ module.exports = function(params) {
                     })
                 });
             })
-            .catch((err) => winston.error("SSH module error: ", err));
+            .catch(err => winston.error("SSH module error: ", err));
     });
 };

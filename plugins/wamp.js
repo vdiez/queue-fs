@@ -3,7 +3,7 @@ let wamp_queue = {};
 let autobahn = require('autobahn');
 let winston = require('winston');
 
-module.exports = function(actions, db, config) {
+module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('wamp')) {
         actions.wamp = function (file, params) {
             if (!params) throw "Missing required arguments";
