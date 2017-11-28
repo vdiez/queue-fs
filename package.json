@@ -4,7 +4,6 @@
   "description": "A promise-based queuing system to deal with file operations",
   "main": "index.js",
   "dependencies": {
-    "@marsaud/smb2": "github:vdiez/node-smb2",
     "autobahn": "^17.5.2",
     "aws-sdk": "^2.91.0",
     "body-parser": "^1.17.2",
@@ -15,6 +14,8 @@
     "moment": "^2.18.1",
     "mongodb": "^2.2.31",
     "request": "^2.83.0",
+    "simple_wamp": "^1.0.2",
+    "smb2": "github:vdiez/node-smb2",
     "sprintf-js": "^1.1.1",
     "ssh2": "^0.5.5",
     "winston": "^2.3.1"

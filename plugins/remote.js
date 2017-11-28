@@ -3,7 +3,7 @@ let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let queue_counter = {};
 
-module.exports = function(actions, db, config) {
+module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('remote')) {
         actions.remote = function(file, params) {
             if (!params) throw "Missing command line";
@@ -19,7 +19,7 @@ module.exports = function(actions, db, config) {
 
             if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
             return ssh({
-                id: (params.host + queue_counter[params.host]++ % (params.parallel_connections || 5)),
+                id: (params.host + queue_counter[params.host]++ % (config.parallel_connections || 5)),
                 host: params.host,
                 username: params.username || config.default_username,
                 password: params.password || config.default_password,
