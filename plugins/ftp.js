@@ -138,8 +138,8 @@ let workers = {};
 let wamp = require('simple_wamp');
 
 module.exports = function(actions) {
-    if (!actions.hasOwnProperty('ftp_upload')) {
-        actions.ftp_upload = function(file, params) {
+    if (!actions.hasOwnProperty('ftp')) {
+        actions.ftp = function(file, params) {
             let target = params.target || './';
             let source = file.dirname;
             if (params.hasOwnProperty('source')) source = params.source;
