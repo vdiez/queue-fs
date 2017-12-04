@@ -156,7 +156,7 @@ module.exports = function(actions) {
             target = sprintf(target, file);
             if (!params.target_is_filename) target = path.join(target, file.filename);
 
-            let destination = {host: params.host, domain: params.domain, username: params.user, password: params.pass, port: params.port};
+            let destination = {host: params.host, domain: params.domain, share: params.share, username: params.username, password: params.password, port: params.port};
             let destination_key = JSON.stringify(destination);
             if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SMB(destination);
 
