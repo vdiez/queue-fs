@@ -1,8 +1,6 @@
-let aws = require('aws-sdk');
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let instances = {};
 
 module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('aws_upload')) {
@@ -11,16 +9,17 @@ module.exports = function(actions, config) {
             if (!params.bucket) throw "Bucket not specified";
             if (!params.credentials && !config.aws_credentials) throw "Credentials path not specified";
 
+            let aws = require('aws-sdk');
             aws.config.loadFromPath(params.credentials || config.aws_credentials);
-            if (!instances.hasOwnProperty(params.credentials)) instances[params.credentials] = new aws.S3();
-            let S3 = instances[params.credentials];
+            let S3 = new aws.S3();;
 
             return new Promise(function (resolve, reject) {
                     S3.createBucket({Bucket: params.bucket}, function(err, data) {
-                        if (err && err.name !== "BucketAlreadyOwnedByYou") reject(err);
+                        if (err) reject(err);
                         else resolve();
                     });
                 })
+                .catch(err => winston.error("Error creating AWS S3 bucket: ", err))
                 .then(function () {
                     return new Promise(function (resolve, reject) {
                         S3.headObject({Bucket: params.bucket, Key: file.filename}, function(err, data) {

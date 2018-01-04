@@ -1,12 +1,13 @@
 let exec = require('child_process').exec;
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
+let wamp = require('simple_wamp');
 
 module.exports = function(actions) {
     if (!actions.hasOwnProperty('local')) {
         actions.local = function(file, params) {
             if (!params) throw "Missing command line";
-            let target, source = file.dirname;
+            let parser, target, source = file.dirname;
 
             if (params.hasOwnProperty('source')) source = params.source;
             source = sprintf(source, file);
@@ -15,8 +16,17 @@ module.exports = function(actions) {
                 target = sprintf(params.target, file);
                 if (!params.target_is_filename) target = path.join(target, file.filename);
             }
+
+            let progress = undefined;
+            let wamp_router = params.wamp_router || config.default_router;
+            let wamp_realm = params.wamp_realm || config.default_realm;
+            if (params.progress && wamp_router && wamp_realm) {
+                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [file, progress]]);
+                parser = require('../helpers/stream_parsers')(params.progress, progress);
+            }
+
             return new Promise(function (resolve, reject) {
-                exec(sprintf(params.cmd, {
+                let child = exec(sprintf(params.cmd, {
                     source: '"' + source.replace(/"/g, "\\\"") + '"',
                     target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
                     dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
@@ -26,6 +36,11 @@ module.exports = function(actions) {
                     if (err) reject(err);
                     else resolve();
                 });
+
+                if (parser) {
+                    child.stderr.on('data', data => parser.parse(data));
+                    child.stdout.on('data', data => parser.parse(data));
+                }
             });
         };
     }

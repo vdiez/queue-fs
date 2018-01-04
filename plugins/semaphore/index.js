@@ -1,6 +1,6 @@
 let memory_db = {};
 let winston = require('winston');
-let mongodb = require('mongodb').MongoClient;
+let mongodb = require('mongodb');
 
 module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('semaphore')) {
@@ -8,20 +8,21 @@ module.exports = function(actions, config) {
 
         let connect = function() {
             return new Promise(function(resolve, reject) {
-                if (!config.semaphore_db) {
+                if (!config.db_host) {
                     resolve();
                     winston.info('Semaphore module using memory: Non persistent results');
                 }
                 if (db) resolve();
-                config.semaphore_collection = config.semaphore_collection || "semaphore";
+                config.db_semaphore = config.db_semaphore || "semaphore";
 
-                mongodb.connect(config.semaphore_db, function (err, con) {
+
+                mongodb.MongoClient.connect(new mongodb.Server(config.db_host, config.db_port), function (err, client) {
                     if (err) {
                         db = false;
                         resolve();
                         winston.error('MongoDB error while connecting: ', err);
                     }
-                    db = con;
+                    db = client.db(config.db_name);
                     db.on('close', () => {
                         db = false;
                         winston.error('MongoDB disconnected');
@@ -51,7 +52,7 @@ module.exports = function(actions, config) {
                         return new Promise(function(resolve, reject) {
                             let poll = function() {
                                 let check;
-                                if (db) check = db.collection(config.semaphore_collection).findOne(result.query);
+                                if (db) check = db.collection(config.db_semaphore).findOne(result.query);
                                 else check = memory_db[JSON.stringify(result.query)];
                                 Promise.resolve(check)
                                     .then((result) => {
@@ -70,7 +71,7 @@ module.exports = function(actions, config) {
                         });
                     }
                     else {
-                        if (db) return db.collection(config.semaphore_collection).findOneAndUpdate(result.query, {$set: result.update}, {upsert: true, returnOriginal: false});
+                        if (db) return db.collection(config.db_semaphore).findOneAndUpdate(result.query, {$set: result.update}, {upsert: true, returnOriginal: false});
                         else {
                             memory_db[JSON.stringify(result.query)] = result.update;
                             return {value: result.update};

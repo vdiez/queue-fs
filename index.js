@@ -64,7 +64,7 @@ module.exports = function(config) {
                                 .catch(() => {
                                     throw {does_not_apply: true};
                                 })
-                                .then((result) => {
+                                .then(result => {
                                     if (!result) throw {does_not_apply: true};
                                     return method(file, actions[i].params);
                                 })

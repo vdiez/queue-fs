@@ -39,8 +39,8 @@ module.exports = function(actions) {
 
                         let transferred = 0;
                         let percentage = 0;
-                        let wamp_router = params.wamp_router || config.wamp_router;
-                        let wamp_realm = params.wamp_realm || config.wamp_realm;
+                        let wamp_router = params.wamp_router || config.default_router;
+                        let wamp_realm = params.wamp_realm || config.default_realm;
                         if (params.progress && wamp_router && wamp_realm) {
                             readStream.on('data', function(buffer) {
                                 transferred += buffer.length;

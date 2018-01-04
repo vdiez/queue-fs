@@ -153,8 +153,8 @@ module.exports = function(actions) {
             if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new FTP(destination);
 
             let progress = undefined;
-            let wamp_router = params.wamp_router || config.wamp_router;
-            let wamp_realm = params.wamp_realm || config.wamp_realm;
+            let wamp_router = params.wamp_router || config.default_router;
+            let wamp_realm = params.wamp_realm || config.default_realm;
             if (params.progress && wamp_router && wamp_realm) {
                 progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [file, progress]])
             }
