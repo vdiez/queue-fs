@@ -145,7 +145,7 @@ SMB.prototype.is_connected = function () {
 let workers = {};
 let wamp = require('simple_wamp');
 
-module.exports = function(actions) {
+module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('smb')) {
         actions.smb = function(file, params) {
             let target = params.target || './';

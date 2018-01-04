@@ -3,7 +3,7 @@ let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let wamp = require('simple_wamp');
 
-module.exports = function(actions) {
+module.exports = function(actions, config) {
     if (!actions.hasOwnProperty('local')) {
         actions.local = function(file, params) {
             if (!params) throw "Missing command line";
