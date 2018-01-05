@@ -69,7 +69,7 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                                         }
                                         else {
                                             let path_creation = undefined;
-                                            let root_path = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+                                            let root_path = path.posix.join(path.dirname(dst), ".tmp");
                                             if (root_path != "." && root_path != "/") {
                                                 path_creation = new Promise(function(resolve3, reject3) {
                                                     self.client.ensureDir(root_path.replace(/\//g, "\\"), function (err) {
@@ -83,10 +83,13 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                                                 .then(() => {
                                                     let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
                                                     self.client.createWriteStream(tmp.replace(/\//g, "\\"), function (err, writeStream) {
-                                                        if (err) throw err;
+                                                        if (err) {
+                                                            reject(err);
+                                                            resolve2();
+                                                        }
                                                         else {
                                                             self.readStream = fs.createReadStream(src);
-                                                            self.readStream.on('close', function () {
+                                                            writeStream.on('finish', function () {
                                                                 self.readStream = undefined;
                                                                 self.client.rename(tmp.replace(/\//g, "\\"), dst.replace(/\//g, "\\"), function(err) {
                                                                     if (err) reject(err);
