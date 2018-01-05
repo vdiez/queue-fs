@@ -10,9 +10,9 @@ module.exports = function(actions, config) {
             let source = file.dirname;
             if (params.hasOwnProperty('source')) source = params.source;
             source = sprintf(source, file);
-            if (!params.source_is_filename) source = path.join(source, file.filename);
+            if (!params.source_is_filename) source = path.posix.join(source, file.filename);
             target = sprintf(target, file);
-            if (!params.target_is_filename) target = path.join(target, file.filename);
+            if (!params.target_is_filename) target = path.posix.join(target, file.filename);
 
             let dirname = path.posix.dirname(target);
             let tmp = path.posix.join(dirname, ".transferring", path.basename(params.filename));

@@ -7,10 +7,10 @@ module.exports = function(actions, config) {
         actions.aws_upload = function(file, params) {
             if (!params) throw "Missing parameters";
             if (!params.bucket) throw "Bucket not specified";
-            if (!params.credentials && !config.aws_credentials) throw "Credentials path not specified";
+            if (!params.credentials && !config.default_aws_credentials) throw "Credentials path not specified";
 
             let aws = require('aws-sdk');
-            aws.config.loadFromPath(params.credentials || config.aws_credentials);
+            aws.config.loadFromPath(params.credentials || config.default_aws_credentials);
             let S3 = new aws.S3();;
 
             return new Promise(function (resolve, reject) {
@@ -36,7 +36,7 @@ module.exports = function(actions, config) {
                         let source = file.dirname;
                         if (params.hasOwnProperty('source')) source = params.source;
                         source = sprintf(source, file);
-                        if (!params.source_is_filename) source = path.join(source, file.filename);
+                        if (!params.source_is_filename) source = path.posix.join(source, file.filename);
                         let fileStream = fs.createReadStream(source);
                         fileStream.on('error', function(err) {reject(err);});
                         S3.upload({Bucket: params.bucket, Key: file.filename, Body: fileStream}, function(err,data) {

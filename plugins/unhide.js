@@ -9,9 +9,9 @@ module.exports = function(actions) {
                 let source = file.dirname;
                 if (params && params.hasOwnProperty('source')) source = params.source;
                 source = sprintf(source, file);
-                if (!params || !params.source_is_filename) source = path.join(source, file.filename);
+                if (!params || !params.source_is_filename) source = path.posix.join(source, file.filename);
                 if (path.basename(source).startsWith('.')) {
-                    let target = path.join(path.dirname(source), path.basename(source).replace(/^\.*/, ''));
+                    let target = path.posix.join(path.dirname(source), path.basename(source).replace(/^\.*/, ''));
                     fs.move(source, target, {overwrite: true}, function (err) {
                         if (err) reject(err);
                         else resolve();
