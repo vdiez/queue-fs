@@ -92,7 +92,7 @@ module.exports = function(config) {
                             if (actions[i].critical) winston.error("Critical action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
                             else winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
                             failed_queues.push(queue);
-                            reject(reason);
+                            reject(reason.toString());
                         }
                         else {
                             winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
