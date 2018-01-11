@@ -4,8 +4,8 @@ let ssh = require('../helpers/ssh');
 let queue_counter = {};
 
 module.exports = function(actions, config) {
-    if (!actions.hasOwnProperty('ftp_download')) {
-        actions.ftp_download = function(file, params) {
+    if (!actions.hasOwnProperty('lftp')) {
+        actions.lftp = function(file, params) {
             let target = params.target || './';
             let source = file.dirname;
             if (params.hasOwnProperty('source')) source = params.source;
