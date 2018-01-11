@@ -21,7 +21,7 @@ module.exports = function(actions, config) {
             return ssh({
                 id: (params.host + queue_counter[params.host]++ % (config.parallel_connections || 5)),
                 host: params.host,
-                cmd: "sudo mkdir -p '" + dirname + "' '" + tmp_dirname + "'; lftp -u " + params.origin_username + "," + params.origin_password + " " + params.origin_host + " -p " + (params.origin_port || 21) + ' -e "set net:timeout 10; set net:max-retries 1; set xfer:clobber yes; pget -c -n ' + (params.concurrency || 8) + " '" + source.replace(/'/g, "\\'").replace(/"/g, "\\\"") + "' -o '" + tmp.replace(/'/g, "\\'").replace(/"/g, "\\\"") + '\'; bye" && mv -f "' + tmp.replace(/"/g, "\\\"") + '" "' + target.replace(/"/g, "\\\"") + '"',
+                cmd: "sudo mkdir -p '" + dirname + "' '" + tmp_dirname + "'; sudo chown " + (params.username || config.default_username) + "'" + dirname + "' '" + tmp_dirname + "'; lftp -u " + params.origin_username + "," + params.origin_password + " " + params.origin_host + " -p " + (params.origin_port || 21) + ' -e "set net:timeout 10; set net:max-retries 1; set xfer:clobber yes; pget -c -n ' + (params.concurrency || 8) + " '" + source.replace(/'/g, "\\'").replace(/"/g, "\\\"") + "' -o '" + tmp.replace(/'/g, "\\'").replace(/"/g, "\\\"") + '\'; bye" && mv -f "' + tmp.replace(/"/g, "\\\"") + '" "' + target.replace(/"/g, "\\\"") + '"',
                 username: params.username || config.default_username,
                 password: params.password || config.default_password
             });
