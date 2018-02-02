@@ -5,7 +5,9 @@ module.exports = function(actions) {
     if (!actions.hasOwnProperty('rest_call')) {
         actions.rest_call = function(file, params) {
             return new Promise(function (resolve, reject) {
-                request(typeof params.request === "function" ? params.request(file) : params.request, function(err, response, body) {
+                let parameters = typeof params.request === "function" ? params.request(file) : params.request;
+                if (!parameters.timeout) parameters.timeout = 10000;
+                request(parameters, function(err, response, body) {
                     if (err) {
                         winston.error("REST API Error:", err);
                         reject(err);

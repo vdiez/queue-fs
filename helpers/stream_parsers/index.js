@@ -1,6 +1,6 @@
 module.exports = function Parser(type, publish) {
-    let type = require('./' + type);
-    let parser = Object.create(type);
+    let module = require('./' + type);
+    let parser = Object.create(module);
     parser.publish = publish;
     return parser;
 };
