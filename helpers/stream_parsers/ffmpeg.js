@@ -1,6 +1,6 @@
 module.exports = {
-    progress: {current: 0},
-    parse: data => {
+    progress: {current: 0, duration: undefined},
+    parse(data) {
         if (data instanceof Buffer) data = data.toString('utf8');
         let match_progress = data.match(/\W*time=\s*(\d+):(\d+):(\d+)\.\d+/);
         if (match_progress && this.progress.duration) {
