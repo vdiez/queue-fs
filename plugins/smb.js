@@ -166,8 +166,8 @@ module.exports = function(actions, config) {
             let progress = undefined;
             let wamp_router = params.wamp_router || config.default_router;
             let wamp_realm = params.wamp_realm || config.default_realm;
-            if (params.progress && wamp_router && wamp_realm) {
-                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [file, progress]])
+            if (params.job_id && params.progress && wamp_router && wamp_realm) {
+                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
             }
 
             return workers[destination_key].transfer_file(source, target, progress);

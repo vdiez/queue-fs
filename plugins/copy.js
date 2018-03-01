@@ -41,14 +41,14 @@ module.exports = function(actions) {
                         let percentage = 0;
                         let wamp_router = params.wamp_router || config.default_router;
                         let wamp_realm = params.wamp_realm || config.default_realm;
-                        if (params.progress && wamp_router && wamp_realm) {
+                        if (params.job_id && params.progress && wamp_router && wamp_realm) {
                             readStream.on('data', function(buffer) {
                                 transferred += buffer.length;
 
                                 let tmp = Math.round(transferred * 100 / stats.size);
                                 if (percentage != tmp) {
                                     percentage = tmp;
-                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [file, {current: transferred, size: stats.size, percentage: percentage}]]);
+                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, {current: transferred, size: stats.size, percentage: percentage}]]);
                                 }
                             });
                         }
