@@ -113,7 +113,7 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                                                                         percentage = tmp;
                                                                         progress({
                                                                             current: transferred,
-                                                                            size: stats.size,
+                                                                            total: stats.size,
                                                                             percentage: percentage
                                                                         });
                                                                     }

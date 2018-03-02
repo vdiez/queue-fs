@@ -21,7 +21,7 @@ module.exports = function(actions) {
                         resolve(body);
                     }
                 });
-
+                if (params && params.sync === false) resolve();
             });
         };
     }

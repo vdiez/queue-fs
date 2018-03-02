@@ -48,7 +48,7 @@ module.exports = function(actions) {
                                 let tmp = Math.round(transferred * 100 / stats.size);
                                 if (percentage != tmp) {
                                     percentage = tmp;
-                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, {current: transferred, size: stats.size, percentage: percentage}]]);
+                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, {current: transferred, total: stats.size, percentage: percentage}]]);
                                 }
                             });
                         }

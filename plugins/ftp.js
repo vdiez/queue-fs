@@ -100,7 +100,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                                                                 percentage = tmp;
                                                                 if (progress) progress({
                                                                     current: transferred,
-                                                                    size: stats.size,
+                                                                    total: stats.size,
                                                                     percentage: percentage
                                                                 });
                                                             }
