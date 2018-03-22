@@ -2,6 +2,7 @@ let queues = {};
 let functions = {};
 let sprintf = require('sprintf-js').sprintf;
 let winston = require('winston');
+let wamp = require('simple_wamp');
 
 module.exports = function(config) {
     config = config || {};
@@ -36,6 +37,15 @@ module.exports = function(config) {
                     awaits.push(queues[dependencies[j]]);
                 }
 
+                let publish = () => {};
+                if (actions[i].params && actions[i].params.job_id && actions[i].params.progress) {
+                    let wamp_router = actions[i].params.wamp_router || config.default_router;
+                    let wamp_realm = actions[i].params.wamp_realm || config.default_realm;
+                    if (wamp_router && wamp_realm) {
+                        publish = content => wamp(wamp_router, wamp_realm, 'publish', [actions[i].params.topic || 'task_progress', [actions[i].params.job_id, file, content]]);
+                    }
+                }
+
                 winston.info("Action " + (actions[i].action.name || actions[i].action) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(function(results) {
@@ -46,6 +56,7 @@ module.exports = function(config) {
                         return new Promise(function(resolve_execution, reject_execution) {
                             let timeout;
                             winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
+                            publish({description: actions[i].params.description});
 
                             if (actions[i].timer && actions[i].timer.timeout) {
                                 timeout = setTimeout(function () {
@@ -81,9 +92,11 @@ module.exports = function(config) {
                     .then(function(result) {
                         resolve();
                         winston.info("Action " + (actions[i].action.name || actions[i].action) + " correctly completed on file " + file.path);
+                        publish({end: 1});
                         return result;
                     })
                     .catch(function(reason) {
+                        publish({fail: reason});
                         if (reason && reason.does_not_apply) {
                             winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
                             resolve({error: reason, path: file.path});

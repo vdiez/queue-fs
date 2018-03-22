@@ -1,6 +1,7 @@
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let ssh = require('../helpers/ssh');
+let wamp = require('simple_wamp');
 let queue_counter = {};
 
 module.exports = function(actions, config) {
