@@ -4,10 +4,8 @@
   "description": "A promise-based queuing system to deal with file operations",
   "main": "index.js",
   "dependencies": {
-    "autobahn": "^17.5.2",
+    "autobahn": "^18.3.2",
     "aws-sdk": "^2.91.0",
-    "body-parser": "^1.17.2",
-    "express": "^4.15.4",
     "fs-extra": "^5.0.0",
     "ftp": "^0.3.10",
     "libxmljs": "^0.18.7",
