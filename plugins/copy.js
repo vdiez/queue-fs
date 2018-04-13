@@ -21,6 +21,7 @@ module.exports = function(actions, config) {
                         let readStream = fs.createReadStream(source);
 
                         Promise.resolve()
+                            .then(() => fs.ensureDir(path.dirname(target)))
                             .then(() => {
                                 if (params.tmp) {
                                     final = target;
@@ -28,7 +29,6 @@ module.exports = function(actions, config) {
                                     return fs.ensureDir(path.dirname(target));
                                 }
                             })
-                            .then(() => fs.ensureDir(path.dirname(final)))
                             .then(() => {
                                 let writeStream = fs.createWriteStream(target);
                                 writeStream.on('close', function () {
