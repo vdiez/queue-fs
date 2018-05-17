@@ -91,7 +91,7 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                 self.writeStream = self.sftp.createWriteStream(tmp);
                 self.writeStream.on('error', err => reject2(err));
                 self.writeStream.on('close', () => resolve2());
-                readStream.pipe(self.writeStream);
+                self.readStream.pipe(self.writeStream);
 
                 if (progress) {
                     let transferred = 0;
