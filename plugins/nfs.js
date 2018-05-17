@@ -55,14 +55,16 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
             .then(() => self.open_connection())
             .then(() => {
                 return all_paths.reduce((p, entry, i) => p.then((parent) => new Promise((resolve2, reject2) => {
-                    if (i === (final_paths.length - 1)) final_handler = parent;
+                    if (i === final_paths.length) final_handler = parent;
                     self.client.lookup(parent, entry, (err, entry_obj, entry_attrs, parent_attr) => {
                         if (err) {
                             if (err.status === 'NFS3ERR_NOENT') self.client.mkdir(parent, entry, {mode: 0o755}, (err, new_entry, attrs, wcc) => !err && new_entry && resolve2(new_entry) || reject2(err));
                             else reject2(err);
                         }
-                        if (entry_attrs.type === "NF3DIR") resolve2(entry_obj);
-                        else reject2(entry + " already exists and it's not a directory");
+                        else {
+                            if (entry_attrs.type === "NF3DIR") resolve2(entry_obj);
+                            else reject2(entry + " already exists and it's not a directory");
+                        }
                     })
                 })), Promise.resolve(self.root))
             })
