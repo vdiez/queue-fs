@@ -18,27 +18,27 @@ function FTP(params) {
 
 FTP.prototype.open_connection = function() {
     let self = this;
-    if (self.is_connected()) return Promise.resolve();
+    if (!!self.client) return Promise.resolve();
 
     winston.debug("Opening FTP connection to " + self.params.host);
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
         self.client = new Client();
         self.client
-            .on('ready', function () {
+            .on('ready', () => {
                 winston.debug("FTP connection to " + self.params.host + " established.");
                 resolve();
             })
-            .on('error', function (err) {
+            .on('error', err => {
                 self.client = undefined;
                 winston.error("Error on FTP connection " + self.params.host + ": " + err);
                 reject(err);
             })
-            .on('end', function () {
+            .on('end', () => {
                 self.client = undefined;
                 winston.debug("FTP connection to " + self.params.host + " ended.");
                 reject("Connection ended");
             })
-            .on('close', function (err) {
+            .on('close', err => {
                 self.client = undefined;
                 winston.debug("FTP connection to " + self.params.host + " closed.");
                 reject("Connection closed: " + err);
@@ -49,73 +49,40 @@ FTP.prototype.open_connection = function() {
 
 FTP.prototype.transfer_file = function (src, dst, progress) {
     let self = this;
+    while (dst.startsWith('/')) dst = dst.slice(1);
+    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+    let src_stats;
 
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(function() {
-                return self.open_connection()
-                    .then(function() {
-                        return new Promise(function(resolve2, reject2) {
-                            fs.stat(src, function (err, stats) {
-                                if (err) {
-                                    reject({exists: false});
-                                    resolve2();
-                                }
-                                else {
-                                    self.client.size(dst, function (err, size) {
-                                        if (!err && size == stats.size) {
-                                            resolve();
-                                            resolve2();
-                                        }
-                                        else {
-                                            self.client.mkdir(path.posix.join(path.dirname(dst), '.tmp'), true, function (err) {
-                                                if (err) {
-                                                    reject(err);
-                                                    resolve2();
-                                                }
-                                                else {
-                                                    let readStream = fs.createReadStream(src);
-                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
-                                                    self.client.put(readStream, tmp, function (err) {
-                                                        if (err) {
-                                                            reject(err);
-                                                            resolve2();
-                                                        }
-                                                        else {
-                                                            self.client.rename(tmp, dst, function(err) {
-                                                                if (err) reject(err);
-                                                                else resolve();
-                                                                resolve2();
-                                                            });
-                                                        }
-                                                    });
-                                                    if (progress) {
-                                                        let transferred = 0;
-                                                        let percentage = 0;
-                                                        readStream.on('data', function (buffer) {
-                                                            transferred += buffer.length;
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+            .then(() => self.open_connection())
+            .then(() => new Promise((resolve2, reject2) => self.client.size(dst, (err, size) => !err && (size === src_stats.size) && resolve() && reject2({file_exists: true}) || resolve2())))
+            .then(() => new Promise((resolve2, reject2) => self.client.mkdir(path.posix.join(path.dirname(dst), ".tmp"), true, err => err && reject2(err) || resolve2())))
+            .then(() => new Promise((resolve2, reject2) => {
+                self.readStream = fs.createReadStream(src);
+                self.client.put(readStream, tmp, err => err && reject2(err) || resolve2());
+                if (progress) {
+                    let transferred = 0;
+                    let percentage = 0;
+                    self.readStream.on('data', buffer => {
+                        transferred += buffer.length;
 
-                                                            let tmp = Math.round(transferred * 100 / stats.size);
-                                                            if (percentage != tmp) {
-                                                                percentage = tmp;
-                                                                if (progress) progress({
-                                                                    current: transferred,
-                                                                    total: stats.size,
-                                                                    percentage: percentage
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
+                        let tmp = Math.round(transferred * 100 / src_stats.size);
+                        if (percentage != tmp) {
+                            percentage = tmp;
+                            progress({
+                                current: transferred,
+                                total: src_stats.size,
+                                percentage: percentage
                             });
-                        });
-                    })
-                    .catch((err) => {reject(err);});
-            });
+                        }
+                    });
+                }
+            }))
+            .then(() => new Promise((resolve2, reject2) => self.client.rename(tmp, dst, err => err && reject2(err) || resolve2())))
+            .then(() => resolve())
+            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
     });
 };
 
@@ -127,11 +94,6 @@ FTP.prototype.close_connection = function (hard) {
         else self.client.end();
     }
     self.client = undefined;
-};
-
-FTP.prototype.is_connected = function () {
-    let self = this;
-    return !!self.client;
 };
 
 let workers = {};

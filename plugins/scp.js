@@ -21,14 +21,14 @@ function SCP(params) {
 
 SCP.prototype.open_connection = function() {
     let self = this;
-    if (self.is_connected()) return Promise.resolve();
+    if (!!self.sftp) return Promise.resolve();
 
     winston.debug("Opening SCP connection to " + self.params.host);
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
         self.client = new Client();
         self.client
-            .on('ready', function () {
-                self.client.sftp(function (err, sftp) {
+            .on('ready', () => {
+                self.client.sftp((err, sftp) => {
                     if (err) {
                         winston.error("Error on SCP connection " + self.params.host + " when opening SFTP stream: " + err);
                         reject(err);
@@ -40,19 +40,19 @@ SCP.prototype.open_connection = function() {
                     }
                 });
             })
-            .on('error', function (err) {
+            .on('error', err => {
                 winston.error("Error on SCP connection " + self.params.host + ": " + err);
                 self.client = undefined;
                 self.sftp = undefined;
                 reject(err);
             })
-            .on('end', function () {
+            .on('end', () => {
                 winston.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
                 reject("Connection ended");
             })
-            .on('close', function (err) {
+            .on('close', err => {
                 winston.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
@@ -67,103 +67,53 @@ SCP.prototype.stop = function() {
     if (self.writeStream) self.writeStream.close();
 };
 
-SCP.prototype.create_path = function (sftp, rel_path, cb) {
+SCP.prototype.create_path = function (dir) {
     let self = this;
-    if (!rel_path || rel_path == "/" || rel_path == ".") {
-        cb();
-        return;
-    }
-    sftp.stat(rel_path, function (err1, stats) {
-        if (err1) {
-            sftp.mkdir(rel_path, function (err2) {
-                if (err2) {
-                    winston.debug("Error[" + err2.code + "] " + err2 + " creating path: " + rel_path + " on SCP connection " + self.params.host);
-                    if (err2.code == 2) { // NO_SUCH_FILE
-                        self.create_path(sftp, path.dirname(rel_path), function () {
-                            self.create_path(sftp, rel_path, cb);
-                        });
-                    }
-                    else cb(err2);
-                }
-                else {
-                    winston.debug("Created path: " + rel_path + " on SCP connection " + self.params.host);
-                    cb();
-                }
-            });
-        }
-        else cb();
-    });
+    if (!dir || dir == "/" || dir == ".") return Promise.resolve();
+    return new Promise((resolve, reject) => self.sftp.stat(dir, (err, stats) => err && resolve() || reject({exists: true})))
+        .then(() => new Promise((resolve, reject) => self.sftp.mkdir(dir, err => !err && resolve() || err && err.code == 2 /*NO_SUCH_FILE*/ && reject({missing_parent: true}) || reject(err))))
+        .catch(err => err.missing_parent && self.create_path(path.dirname(dir)).then(() => self.create_path(dir)) || err.exists || Promise.reject(err))
 };
 
 SCP.prototype.transfer_file = function (src, dst, progress) {
     let self = this;
+    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+    let src_stats;
 
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(function() {
-                return self.open_connection()
-                    .then(function() {
-                        return new Promise(function(resolve2, reject2) {
-                            fs.stat(src, function (err, stats) {
-                                if (err) {
-                                    reject({exists: false});
-                                    resolve2();
-                                }
-                                else {
-                                    self.sftp.stat(dst, function (err, stats2) {
-                                        if (!err && stats2.size == stats.size) {
-                                            resolve();
-                                            resolve2();
-                                        }
-                                        else {
-                                            self.create_path(self.sftp, path.posix.join(path.dirname(dst), '.tmp'), function (err) {
-                                                if (err) {
-                                                    reject(err);
-                                                    resolve2();
-                                                }
-                                                else {
-                                                    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
-                                                    self.writeStream = self.sftp.createWriteStream(tmp);
-                                                    self.writeStream.on('error', function (err) {
-                                                        reject(err);
-                                                        resolve2();
-                                                    });
-                                                    self.writeStream.on('close', function () {
-                                                        self.sftp.rename(tmp, dst, function(err) {
-                                                            if (err) reject(err);
-                                                            else resolve();
-                                                            resolve2();
-                                                        });
-                                                    });
-                                                    let readStream = fs.createReadStream(src);
-                                                    readStream.pipe(self.writeStream);
-                                                    if (progress) {
-                                                        let transferred = 0;
-                                                        let percentage = 0;
-                                                        readStream.on('data', function (buffer) {
-                                                            transferred += buffer.length;
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+            .then(() => self.open_connection())
+            .then(() => new Promise((resolve2, reject2) => self.sftp.stat(dst, (err, stats) => !err && (stats.size === src_stats.size) && resolve() && reject2({file_exists: true}) || resolve2())))
+            .then(() => self.create_path(path.posix.join(path.dirname(dst), '.tmp')))
+            .then(() => new Promise((resolve2, reject2) => {
+                self.readStream = fs.createReadStream(src);
+                self.writeStream = self.sftp.createWriteStream(tmp);
+                self.writeStream.on('error', err => reject2(err));
+                self.writeStream.on('close', () => resolve2());
+                readStream.pipe(self.writeStream);
 
-                                                            let tmp = Math.round(transferred * 100 / stats.size);
-                                                            if (percentage != tmp) {
-                                                                percentage = tmp;
-                                                                progress({
-                                                                    current: transferred,
-                                                                    total: stats.size,
-                                                                    percentage: percentage
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
+                if (progress) {
+                    let transferred = 0;
+                    let percentage = 0;
+                    self.readStream.on('data', buffer => {
+                        transferred += buffer.length;
+
+                        let tmp = Math.round(transferred * 100 / src_stats.size);
+                        if (percentage != tmp) {
+                            percentage = tmp;
+                            progress({
+                                current: transferred,
+                                total: src_stats.size,
+                                percentage: percentage
                             });
-                        });
-                    })
-                    .catch((err) => {reject(err);});
-            });
+                        }
+                    });
+                }
+            }))
+            .then(() => new Promise((resolve2, reject2) => self.sftp.rename(tmp, dst, err => err && reject2(err) || resolve2())))
+            .then(() => resolve())
+            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
     });
 };
 
@@ -172,11 +122,6 @@ SCP.prototype.close_connection = function () {
     if (self.client) self.client.end();
     self.client = undefined;
     self.sftp = undefined;
-};
-
-SCP.prototype.is_connected = function () {
-    let self = this;
-    return self.sftp;
 };
 
 let workers = {};
