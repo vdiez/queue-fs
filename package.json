@@ -11,6 +11,7 @@
     "libxmljs": "^0.18.7",
     "moment": "^2.18.1",
     "mongodb": "^3.0.1",
+    "node-nfsc": "^2.0.3",
     "request": "^2.83.0",
     "simple_wamp": "^1.0.2",
     "smb2": "github:vdiez/node-smb2",
