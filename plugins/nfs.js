@@ -99,11 +99,13 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                     self.readStream.on('error', err => reject2(err));
                     self.readStream.on('close', () => resolve2());
                     self.readStream.on('data', buffer => {
+                        self.readStream.pause();
                         self.client.write(object, buffer.length, transferred, self.client.WRITE_DATA_SYNC, buffer, (err, commited, count, verf, wcc) => {
                             if (err) {
                                 reject2(err);
                                 self.readStream.destroy();
                             }
+                            else self.readStream.resume();
                         });
                         transferred += buffer.length;
                         if (progress) {
