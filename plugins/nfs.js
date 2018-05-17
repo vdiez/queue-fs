@@ -81,7 +81,16 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                     }
                 }))
             })
-            .then(() => new Promise((resolve2, reject2) => {
+            .then(() => {
+                return new Promise((resolve2, reject2) => self.client.lookup(tmp_handler, filename, (err, entry, attrs) =>  {
+                    if (err) resolve2();
+                    else {
+                        if (attrs.size === src_stats.size) resolve2({tmp_exists: true});
+                        else self.client.remove(tmp_handler, filename, err =>  err && reject2(err) || resolve2());
+                    }
+                }))
+            })
+            .then(tmp_exists => tmp_exists || new Promise((resolve2, reject2) => {
                 self.client.create(tmp_handler, filename, self.client.CREATE_GUARDED, { mode: 0o644 }, (err, object, obj_attrs) => {
                     if (err) return reject2(err);
                     let transferred = 0;
