@@ -90,7 +90,7 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                     self.readStream.on('error', err => reject2(err));
                     self.readStream.on('close', () => resolve2());
                     self.readStream.on('data', buffer => {
-                        self.client.write(object, buffer.length, transferred, self.client.DATA_SYNC, buffer, (err, commited, count, verf, wcc) => {
+                        self.client.write(object, buffer.length, transferred, self.client.WRITE_DATA_SYNC, buffer, (err, commited, count, verf, wcc) => {
                             if (err) {
                                 reject2(err);
                                 self.readStream.destroy();
