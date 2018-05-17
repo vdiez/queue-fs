@@ -12,7 +12,7 @@ function NFS(params) {
 
     self.params = {};
     self.params.host = params.host;
-    if (params.exportPath) self.params.port = params.exportPath;
+    if (params.exportPath) self.params.exportPath = params.exportPath;
     if (params.uid) self.params.uid = params.uid;
     if (params.gid) self.params.gid = params.gid;
 }
@@ -137,7 +137,7 @@ module.exports = function(actions, config) {
             target = sprintf(target, file);
             if (!params.target_is_filename) target = path.posix.join(target, file.filename);
 
-            let destination = {host: params.host, exportPath: params.share, uid: params.username, gid: params.password};
+            let destination = {host: params.host, exportPath: params.export_path, uid: params.uid, gid: params.gid};
             let destination_key = JSON.stringify(destination);
             if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new NFS(destination);
 
