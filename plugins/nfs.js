@@ -95,7 +95,7 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                     if (err) return reject2(err);
                     let transferred = 0;
                     let percentage = 0;
-                    self.readStream = fs.createReadStream(src);
+                    self.readStream = fs.createReadStream(src, { highWaterMark: 32 * 1024 });
                     self.readStream.on('error', err => reject2(err));
                     self.readStream.on('close', () => resolve2());
                     self.readStream.on('data', buffer => {
