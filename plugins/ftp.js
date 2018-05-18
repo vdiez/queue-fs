@@ -61,7 +61,7 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
             .then(() => new Promise((resolve2, reject2) => self.client.mkdir(path.posix.join(path.dirname(dst), ".tmp"), true, err => err && reject2(err) || resolve2())))
             .then(() => new Promise((resolve2, reject2) => {
                 self.readStream = fs.createReadStream(src);
-                self.client.put(readStream, tmp, err => err && reject2(err) || resolve2());
+                self.client.put(self.readStream, tmp, err => err && reject2(err) || resolve2());
                 if (progress) {
                     let transferred = 0;
                     let percentage = 0;
