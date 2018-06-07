@@ -61,13 +61,7 @@ module.exports = function(actions, config) {
                         let options = params.options || {partSize: 5 * 1024 * 1024, queueSize: 5};
                         let result = S3.upload({Bucket: params.bucket, Key: target, Body: fileStream}, options, function(err,data) {
                             if (err) reject(err);
-                            else {
-                                resolve();/*
-                                S3.putObjectAcl({Bucket: params.bucket, ACL: "public-read", Key: target}, function(err, data) {
-                                    if (err) reject(err);
-                                    else resolve();
-                                });*/
-                            }
+                            else resolve();
                         });
 
                         if (progress) result.on('httpUploadProgress', event => {
@@ -82,7 +76,17 @@ module.exports = function(actions, config) {
                 .catch(err => {
                     if (err && err.file_exists) return winston.info(source + " already exists on AWS bucket " + params.bucket);
                     throw err;
-                });
+                })
+                .then(() => new Promise((resolve, reject) => {
+                    if (params.make_public) {
+                        S3.putObjectAcl({Bucket: params.bucket, ACL: "public-read", Key: target}, function(err, data) {
+                            if (err) reject(err);
+                            else resolve();
+                        });
+                    }
+                    else resolve();
+                }))
+                .catch(err => {throw err;})
         }
     }
 

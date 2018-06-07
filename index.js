@@ -4,7 +4,7 @@ let sprintf = require('sprintf-js').sprintf;
 let winston = require('winston');
 let wamp = require('simple_wamp');
 
-module.exports = function(config) {
+module.exports = config => {
     config = config || {};
 
     function load_function(action) {
@@ -16,16 +16,31 @@ module.exports = function(config) {
                 require('./plugins/' + action)(functions, config);
                 if (functions.hasOwnProperty(action)) return functions[action];
             }
-            catch(e) {}
+            catch(e) {winston.error("Error loading plugin " + action + ":", e)}
         }
     }
+    function load_templates(actions) {
+        let raw_actions = [];
+        for (let i = 0; i < actions.length; i++){
+            try {
+                let unfolded_actions = require('./templates/' + actions[i].action)(actions[i].params);
+                raw_actions = raw_actions.concat(unfolded_actions);
+                winston.info("Detected template action " + actions[i].action);
+            }
+            catch(e) {
+                raw_actions.push(actions[i]);
+            }
+        }
+        return raw_actions;
+    }
 
-    return function(file, actions) {
+    return (file, actions) => {
+        file.results = [];
         actions = [].concat(actions);
         let promises = [], failed_queues = [];
-
+        actions = load_templates(actions);
         for (let i = 0; i < actions.length; i++) {
-            promises.push(new Promise(function(resolve, reject) {
+            promises.push(new Promise((resolve, reject) => {
                 let queue = file.path;
                 if (actions[i].hasOwnProperty('queue')) queue = sprintf(actions[i].queue, file);
 
@@ -48,18 +63,19 @@ module.exports = function(config) {
 
                 winston.info("Action " + (actions[i].action.name || actions[i].action) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
-                    .then(function(results) {
+                    .then(results => {
+                        file.results.push(results);
                         if (failed_queues.filter(queue => dependencies.includes(queue)).length) throw {critical_failed: true};
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        return new Promise(function(resolve_execution, reject_execution) {
+                        return new Promise((resolve_execution, reject_execution) => {
                             let timeout;
                             winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
                             publish({description: actions[i].params.description});
 
                             if (actions[i].timer && actions[i].timer.timeout) {
-                                timeout = setTimeout(function () {
+                                timeout = setTimeout(() => {
                                     winston.info("Timeout for " + (actions[i].action.name || actions[i].action) + " on file " + file.path);
                                     if (actions[i].timer.action) {
                                         let effect = load_function(actions[i].timer.action);
@@ -89,13 +105,13 @@ module.exports = function(config) {
                                 });
                         });
                     })
-                    .then(function(result) {
+                    .then(result => {
                         resolve();
                         winston.info("Action " + (actions[i].action.name || actions[i].action) + " correctly completed on file " + file.path);
                         publish({end: 1});
                         return result;
                     })
-                    .catch(function(reason) {
+                    .catch(reason => {
                         publish({fail: reason});
                         if (reason && reason.does_not_apply) {
                             winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
@@ -116,6 +132,6 @@ module.exports = function(config) {
             }));
         }
 
-        return Promise.all(promises)
+        return Promise.all(promises).then(() => file);
     }
 };
