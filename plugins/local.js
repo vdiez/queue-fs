@@ -39,7 +39,7 @@ module.exports = function(actions, config) {
                     path: '"' + file.path.replace(/"/g, "\\\"") + '"'
                 }), function(err, stdout, stderr) {
                     if (err) reject(err);
-                    else resolve();
+                    else resolve(parser && parser.data);
                 });
 
                 if (parser) {

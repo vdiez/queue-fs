@@ -7,7 +7,9 @@ let wamp = require('simple_wamp');
 module.exports = config => {
     config = config || {};
 
-    function load_function(action) {
+    let display = action => action.id || action.action.name || action.action;
+
+    let load_function = action => {
         if (typeof action === "undefined") return;
         if (functions.hasOwnProperty(action)) return functions[action];
         else if (typeof action === "function") return action;
@@ -18,8 +20,9 @@ module.exports = config => {
             }
             catch(e) {winston.error("Error loading plugin " + action + ":", e)}
         }
-    }
-    function load_templates(actions) {
+    };
+
+    let load_templates = actions => {
         let raw_actions = [];
         for (let i = 0; i < actions.length; i++){
             try {
@@ -32,10 +35,10 @@ module.exports = config => {
             }
         }
         return raw_actions;
-    }
+    };
 
     return (file, actions) => {
-        file.results = [];
+        file.results = {};
         actions = [].concat(actions);
         let promises = [], failed_queues = [];
         actions = load_templates(actions);
@@ -61,22 +64,21 @@ module.exports = config => {
                     }
                 }
 
-                winston.info("Action " + (actions[i].action.name || actions[i].action) + " enqueued on file " + file.path);
+                winston.info("Action " + display(actions[i]) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(results => {
-                        file.results.push(results);
                         if (failed_queues.filter(queue => dependencies.includes(queue)).length) throw {critical_failed: true};
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
                         return new Promise((resolve_execution, reject_execution) => {
                             let timeout;
-                            winston.info("Action " + (actions[i].action.name || actions[i].action) + " starting on file " + file.path);
+                            winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
                             publish({description: actions[i].params.description});
 
                             if (actions[i].timer && actions[i].timer.timeout) {
                                 timeout = setTimeout(() => {
-                                    winston.info("Timeout for " + (actions[i].action.name || actions[i].action) + " on file " + file.path);
+                                    winston.info("Timeout for " + display(actions[i]) + " on file " + file.path);
                                     if (actions[i].timer.action) {
                                         let effect = load_function(actions[i].timer.action);
                                         if (effect) effect(file, actions[i].timer.params);
@@ -106,25 +108,26 @@ module.exports = config => {
                         });
                     })
                     .then(result => {
+                        if (actions[i].id) file.results[actions[i].id] = result;
                         resolve();
-                        winston.info("Action " + (actions[i].action.name || actions[i].action) + " correctly completed on file " + file.path);
+                        winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
                         publish({end: 1});
                         return result;
                     })
                     .catch(reason => {
                         publish({fail: reason});
                         if (reason && reason.does_not_apply) {
-                            winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + (actions[i].action.name || actions[i].action));
+                            winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + display(actions[i]));
                             resolve({error: reason, path: file.path});
                         }
                         else if (actions[i].critical || (reason && reason.critical_failed)) {
-                            if (actions[i].critical) winston.error("Critical action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
-                            else winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
+                            if (actions[i].critical) winston.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: " + reason);
+                            else winston.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
                             failed_queues.push(queue);
                             reject(reason.toString());
                         }
                         else {
-                            winston.error("Action " + (actions[i].action.name || actions[i].action) + " failed on file " + file.path + ". Error: " + reason);
+                            winston.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: " + reason);
                             resolve({error: reason, path: file.path});
                         }
                         return reason;

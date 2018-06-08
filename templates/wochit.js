@@ -2,7 +2,7 @@ module.exports = (params) => {
     let actions = [];
     params.make_public = true;
     actions.push({action: "aws_s3", critical:true, params: params});
-    actions.push({action: "rest_call", critical: true, params: {request: file => ({
+    actions.push({id: "wochit_token", action: "rest_call", critical: true, params: {request: file => ({
                 url: "https://ingest-api.wochit.com/api/v1/oauth/access_token",
                 method: 'POST',
                 headers: {
@@ -14,7 +14,7 @@ module.exports = (params) => {
                 url: "https://ingest-api.wochit.com/api/v1/assets",
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + JSON.parse(file.results[2]).token,
+                    'Authorization': 'Bearer ' + JSON.parse(file.results['wochit_token']).token,
                     'x-api-key': params.api_key
                 },
                 json: {
