@@ -8,18 +8,18 @@
   },
   "dependencies": {
     "autobahn": "^18.3.2",
-    "aws-sdk": "^2.91.0",
+    "aws-sdk": "^2.265.1",
     "fs-extra": "^5.0.0",
     "ftp": "^0.3.10",
-    "libxmljs": "^0.18.7",
-    "moment": "^2.18.1",
-    "mongodb": "^3.0.1",
-    "request": "^2.83.0",
-    "simple_wamp": "^1.0.2",
+    "libxmljs": "^0.18.8",
+    "moment": "^2.22.2",
+    "mongodb": "^3.1.0",
+    "request": "^2.87.0",
+    "simple_wamp": "^1.1.2",
     "smb2": "github:vdiez/node-smb2",
     "sprintf-js": "^1.1.1",
     "ssh2": "^0.5.5",
-    "winston": "^2.3.1"
+    "winston": "^2.4.3"
   },
   "devDependencies": {},
   "scripts": {

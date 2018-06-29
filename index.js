@@ -115,7 +115,7 @@ module.exports = config => {
                         return result;
                     })
                     .catch(reason => {
-                        publish({fail: reason});
+                        publish({fail: reason && reason.toString()});
                         if (reason && reason.does_not_apply) {
                             winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + display(actions[i]));
                             resolve({error: reason, path: file.path});
