@@ -26,7 +26,7 @@ module.exports = config => {
         let raw_actions = [];
         for (let i = 0; i < actions.length; i++){
             try {
-                let unfolded_actions = require('./templates/' + actions[i].action)(actions[i].params);
+                let unfolded_actions = require('./templates/' + actions[i].action)(actions[i].params, config);
                 raw_actions = raw_actions.concat(unfolded_actions);
                 winston.info("Detected template action " + actions[i].action);
             }
@@ -71,7 +71,7 @@ module.exports = config => {
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        return new Promise((resolve_execution, reject_execution) => {
+                        let execute = () => new Promise((resolve_execution, reject_execution) => {
                             let timeout;
                             winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
                             publish({description: actions[i].params.description});
@@ -105,14 +105,24 @@ module.exports = config => {
                                     if (timeout) clearTimeout(timeout);
                                     reject_execution(error);
                                 });
+                        })
+                        .then(result => {
+                            if (actions[i].id) file.results[actions[i].id] = result;
+                            let post;
+                            if (actions[i].loop_while && typeof actions[i].loop_while === "function") post = actions[i].loop_while(file);
+                            return Promise.resolve(post)
+                                .then(loop => {
+                                    if (loop) setTimeout(execute, 5000);
+                                    else {
+                                        resolve();
+                                        winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
+                                        publish({end: 1});
+                                        return result;
+                                    }
+                                });
                         });
-                    })
-                    .then(result => {
-                        if (actions[i].id) file.results[actions[i].id] = result;
-                        resolve();
-                        winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
-                        publish({end: 1});
-                        return result;
+
+                        return execute();
                     })
                     .catch(reason => {
                         publish({fail: reason && reason.toString()});
