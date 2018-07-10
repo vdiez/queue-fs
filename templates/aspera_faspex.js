@@ -79,19 +79,28 @@ module.exports = (params, config) => {
         };
     }}, loop_while: file => {
         try {
-            let json = xml.parseXmlString(file.results["aspera_query_package"]).root();
+            let data = xml.parseXmlString(file.results["aspera_query_package"]).root();
             let metadata = {};
+            let downloaded = false;
 
-            let tmp = json.get("//field[@name='_pkg_uuid']");
-            if (tmp) metadata.package_id = tmp.text().trim();
-            tmp = json.get("//downloads");
-            if (tmp) metadata.downloads = tmp.text().trim();
-            return metadata.downloads;
+            metadata.package_id = data.get("//field[@name='_pkg_uuid']");
+            if (metadata.package_id) metadata.package_id = tmp.text().trim();
+            let download = data.get("//downloads/download");
+            while (download) {
+                let scope = download.get('scope');
+                let status = download.get('status');
+                if (scope && status) {
+                    if (scope.text().trim().toLowerCase() === "full" && status.text().trim().toLowerCase() === "completed") downloaded = true;
+                }
+                download = download.nextElement();
+            }
+            return !downloaded;
         }
         catch (e) {
-            winston.error("Error parsing Aspera XML for file " + file.filename + ": ", err)
-            return true;
+            winston.error("Error parsing Aspera XML for file " + file.filename + ": ", e);
+            return false;
         }
     }});
+    actions.push({action: "wamp", params: {method: "publish", topic: "update_clip", xargs: file => ({clip_id: file.clip_id, type: file.type, event: "delivered", box: {name: params.destination_name}})}});
     return actions;
 };
