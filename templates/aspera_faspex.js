@@ -6,8 +6,7 @@ let path = require('path');
 module.exports = (params, config) => {
     let actions = [];
     let db;
-    actions.push({id: "aspera_create_package", action: "rest_call", critical: true, params: {request: file => {
-        return new Promise((resolve, reject) => {
+    actions.push({id: "aspera_create_package", action: "rest_call", critical: true, params: file => new Promise((resolve, reject) => {
             if (db) return resolve();
             mongodb.MongoClient.connect(new mongodb.Server(config.db_host, config.db_port), (err, client) => {
                 if (err) return reject('MongoDB error while connecting: ', err);
@@ -31,53 +30,57 @@ module.exports = (params, config) => {
                 sources.push(sprintf(source, result));
             }
             return {
-                url: params.host + "/aspera/faspex/send",
-                method: 'POST',
-                auth: {
-                    user: params.username,
-                    pass: params.password
-                },
-                strictSSL: false,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                json: {
-                    "delivery": {
-                        "title": file.type + " - " + (file.match_name || file.keywords || file.base_clip_id),
-                        "note": file.keywords || file.base_clip_id,
-                        "recipients": [params.recipient],
-                        "send_upload_result": true,
-                        "delete_after_download_policy": 2,
-                        "use_encryption_at_rest": false,
-                        "sources": [
-                            {
-                                "id": params.share_id,
-                                "paths": sources
-                            }
-                        ]
+                request: {
+                    url: params.host + "/aspera/faspex/send",
+                    method: 'POST',
+                    auth: {
+                        user: params.username,
+                        pass: params.password
+                    },
+                    strictSSL: false,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    json: {
+                        "delivery": {
+                            "title": file.type + " - " + (file.match_name || file.keywords || file.base_clip_id),
+                            "note": file.keywords || file.base_clip_id,
+                            "recipients": [params.recipient],
+                            "send_upload_result": true,
+                            "delete_after_download_policy": 2,
+                            "use_encryption_at_rest": false,
+                            "sources": [
+                                {
+                                    "id": params.share_id,
+                                    "paths": sources
+                                }
+                            ]
+                        }
                     }
                 }
             };
         })
-    }}});
-    actions.push({id: "aspera_query_package", action: "rest_call", critical: true, params: {request: file => {
+    });
+    actions.push({id: "aspera_query_package", action: "rest_call", critical: true, params: file => {
         let url = file.results['aspera_create_package'];
         if (!url.hasOwnProperty("links") || !url.links.hasOwnProperty('status')) throw "Could not create aspera package";
         url = url.links.status;
         return {
-            url: url,
-            method: 'GET',
-            auth: {
-                user: params.username,
-                pass: params.password
-            },
-            headers: {
-                'Accept': 'application/xml'
-            },
-            strictSSL: false
+            request: {
+                url: url,
+                method: 'GET',
+                auth: {
+                    user: params.username,
+                    pass: params.password
+                },
+                headers: {
+                    'Accept': 'application/xml'
+                },
+                strictSSL: false
+            }
         };
-    }}, loop_while: file => {
+    }, loop_while: file => {
         try {
             let data = xml.parseXmlString(file.results["aspera_query_package"]).root();
             let metadata = {};
