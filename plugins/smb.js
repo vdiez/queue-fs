@@ -1,12 +1,10 @@
-let Client = require('smb2');
+let Client = require('@marsaud/smb2');
 let fs = require('fs-extra');
 let path = require('path');
-let winston = require('winston');
 let sprintf = require('sprintf-js').sprintf;
 
 function SMB(params) {
     let self = this;
-    self.client = undefined;
     self.readStream = undefined;
     self.queue = undefined;
 
@@ -17,42 +15,29 @@ function SMB(params) {
     self.params.domain = params.domain;
     self.params.autoCloseTimeout = 0;
     if (params.port) self.params.port = params.port;
+    self.client = new Client(self.params);
 }
 
-SMB.prototype.open_connection = function(){
-    let self = this;
-    if (!!self.client) return Promise.resolve();
-
-    winston.debug("Opening SMB connection to " + self.params.host);
-    self.client = new Client(self.params);
-
-    return new Promise((resolve, reject) => {
-        self.client.connect(err => {
-            if (err) {
-                winston.error("Error on SMB connection " + self.params.share + ": " + err);
-                self.client = undefined;
-                reject(err);
-            }
-            else {
-                winston.debug("SMB connection to " + self.params.share + " established.");
-                resolve();
-            }
-        });
-    });
-};
-
-SMB.prototype.transfer_file = function (src, dst, progress) {
+SMB.prototype.transfer_file = function (src, dst, progress, no_tmp) {
     let self = this;
     while (dst.startsWith('/')) dst = dst.slice(1);
-    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+    let tmp = no_tmp && dst || path.posix.join(path.posix.dirname(dst), ".tmp", path.posix.basename(dst));
     let src_stats;
 
     return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
-            .then(() => self.open_connection())
-            .then(() => new Promise((resolve2, reject2) => self.client.getSize(dst.replace(/\//g, "\\"), (err, size) => !err && (size === src_stats.size) && resolve() && reject2({file_exists: true}) || resolve2())))
-            .then(() => new Promise((resolve2, reject2) => self.client.ensureDir(path.posix.join(path.dirname(dst), ".tmp").replace(/\//g, "\\"), err => err && reject2(err) || resolve2())))
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => {
+                if (err) reject2({not_found: true});
+                else {
+                    src_stats = stats;
+                    resolve2();
+                }
+            })))
+            .then(() => new Promise((resolve2, reject2) => self.client.getSize(dst.replace(/\//g, "\\"), (err, size) => {
+                if (!err && (size === src_stats.size)) reject2({file_exists: true});
+                else resolve2();
+            })))
+            .then(() => self.client.ensureDir(path.posix.dirname(tmp).replace(/\//g, "\\")))
             .then(() => new Promise((resolve2, reject2) => {
                 self.client.createWriteStream(tmp.replace(/\//g, "\\"), (err, writeStream) => {
                     if (err) return reject2(err);
@@ -79,9 +64,15 @@ SMB.prototype.transfer_file = function (src, dst, progress) {
                     }
                 });
             }))
-            .then(() => new Promise((resolve2, reject2) => self.client.rename(tmp.replace(/\//g, "\\"), dst.replace(/\//g, "\\"), err => err && reject2(err) || resolve2())))
+            .then(() => no_tmp || self.client.rename(tmp.replace(/\//g, "\\"), dst.replace(/\//g, "\\")))
             .then(() => resolve())
-            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
+            .catch(err => {
+                if (err && err.file_exists) resolve();
+                else {
+                    reject(err);
+                    if (!err || !err.not_found) self.close_connection()
+                }
+            });
     });
 };
 
@@ -118,7 +109,7 @@ module.exports = (actions, config) => {
                     progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 }
 
-                return workers[destination_key].transfer_file(source, target, progress);
+                return workers[destination_key].transfer_file(source, target, progress, params.direct);
             });
     }
     return actions;

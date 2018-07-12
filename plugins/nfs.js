@@ -39,11 +39,11 @@ NFS.prototype.open_connection = function() {
     });
 };
 
-NFS.prototype.transfer_file = function (src, dst, progress) {
+NFS.prototype.transfer_file = function (src, dst, progress, no_tmp) {
     let self = this;
     while (dst.startsWith('/')) dst = dst.slice(1);
     let filename = path.posix.basename(dst);
-    let tmp = path.posix.join(path.posix.dirname(dst), ".tmp", filename);
+    let tmp = no_tmp && dst || path.posix.join(path.posix.dirname(dst), ".tmp", filename);
     let all_paths = path.posix.dirname(tmp).split('/');
     let final_paths = path.posix.dirname(dst).split('/');
     let tmp_handler, final_handler;
@@ -51,14 +51,23 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
 
     return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => {
+                if (err) reject2({not_found: true});
+                else {
+                    src_stats = stats;
+                    resolve2();
+                }
+            })))
             .then(() => self.open_connection())
             .then(() => {
                 return all_paths.reduce((p, entry, i) => p.then((parent) => new Promise((resolve2, reject2) => {
                     if (i === final_paths.length) final_handler = parent;
                     self.client.lookup(parent, entry, (err, entry_obj, entry_attrs, parent_attr) => {
                         if (err) {
-                            if (err.status === 'NFS3ERR_NOENT') self.client.mkdir(parent, entry, {mode: 0o755}, (err, new_entry, attrs, wcc) => !err && new_entry && resolve2(new_entry) || reject2(err));
+                            if (err.status === 'NFS3ERR_NOENT') self.client.mkdir(parent, entry, {mode: 0o755}, (err, new_entry, attrs, wcc) => {
+                                if (!err && new_entry) resolve2(new_entry);
+                                else reject2(err);
+                            });
                             else reject2(err);
                         }
                         else {
@@ -69,15 +78,16 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                 })), Promise.resolve(self.root))
             })
             .then(handler => {
+                if (no_tmp) return; //tmp handler is the final one with no_tmp
                 tmp_handler = handler;
                 return new Promise((resolve2, reject2) => self.client.lookup(final_handler, filename, (err, entry, attrs) =>  {
                     if (err) resolve2();
                     else {
-                        if (attrs.size === src_stats.size) {
-                            resolve();
-                            reject2({file_exists: true});
-                        }
-                        else self.client.remove(final_handler, filename, err =>  err && reject2(err) || resolve2());
+                        if (attrs.size === src_stats.size) reject2({file_exists: true});
+                        else self.client.remove(final_handler, filename, err => {
+                            if (err) reject2(err);
+                            else resolve2();
+                        });
                     }
                 }))
             })
@@ -85,8 +95,14 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                 return new Promise((resolve2, reject2) => self.client.lookup(tmp_handler, filename, (err, entry, attrs) =>  {
                     if (err) resolve2();
                     else {
-                        if (attrs.size === src_stats.size) resolve2({tmp_exists: true});
-                        else self.client.remove(tmp_handler, filename, err =>  err && reject2(err) || resolve2());
+                        if (attrs.size === src_stats.size) {
+                            if (no_tmp) reject2({file_exists: true});
+                            else resolve2({tmp_exists: true});
+                        }
+                        else self.client.remove(tmp_handler, filename, err =>  {
+                            if (err) reject2(err);
+                            else resolve2();
+                        });
                     }
                 }))
             })
@@ -120,9 +136,18 @@ NFS.prototype.transfer_file = function (src, dst, progress) {
                     });
                 });
             }))
-            .then(() => new Promise((resolve2, reject2) => self.client.rename(tmp_handler, filename, final_handler, filename, err => err && reject2(err) || resolve2())))
+            .then(() => no_tmp || new Promise((resolve2, reject2) => self.client.rename(tmp_handler, filename, final_handler, filename, err => {
+                if (err) reject2(err);
+                else resolve2();
+            })))
             .then(() => resolve())
-            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
+            .catch(err => {
+                if (err && err.file_exists) resolve();
+                else {
+                    reject(err);
+                    if (!err || !err.not_found) self.close_connection()
+                }
+            });
     });
 };
 
@@ -161,7 +186,7 @@ module.exports = (actions, config) => {
                     progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 }
 
-                return workers[destination_key].transfer_file(source, target, progress);
+                return workers[destination_key].transfer_file(source, target, progress, params.direct);
             });
     }
     return actions;

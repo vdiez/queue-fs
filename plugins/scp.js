@@ -69,23 +69,32 @@ SCP.prototype.stop = function() {
 
 SCP.prototype.create_path = function (dir) {
     let self = this;
-    if (!dir || dir == "/" || dir == ".") return Promise.resolve();
+    if (!dir || dir === "/" || dir === ".") return Promise.resolve();
     return new Promise((resolve, reject) => self.sftp.stat(dir, (err, stats) => err && resolve() || reject({exists: true})))
         .then(() => new Promise((resolve, reject) => self.sftp.mkdir(dir, err => !err && resolve() || err && err.code == 2 /*NO_SUCH_FILE*/ && reject({missing_parent: true}) || reject(err))))
         .catch(err => err.missing_parent && self.create_path(path.dirname(dir)).then(() => self.create_path(dir)) || err.exists || Promise.reject(err))
 };
 
-SCP.prototype.transfer_file = function (src, dst, progress) {
+SCP.prototype.transfer_file = function (src, dst, progress, no_tmp) {
     let self = this;
-    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+    let tmp = no_tmp && dst || path.posix.join(path.posix.dirname(dst), ".tmp", path.posix.basename(dst));
     let src_stats;
 
     return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => {
+                if (err) reject2({not_found: true});
+                else {
+                    src_stats = stats;
+                    resolve2();
+                }
+            })))
             .then(() => self.open_connection())
-            .then(() => new Promise((resolve2, reject2) => self.sftp.stat(dst, (err, stats) => !err && (stats.size === src_stats.size) && resolve() && reject2({file_exists: true}) || resolve2())))
-            .then(() => self.create_path(path.posix.join(path.dirname(dst), '.tmp')))
+            .then(() => new Promise((resolve2, reject2) => self.sftp.stat(dst, (err, stats) => {
+                if (!err && (stats.size === src_stats.size)) reject2({file_exists: true});
+                else resolve2();
+            })))
+            .then(() => self.create_path(path.posix.dirname(tmp)))
             .then(() => new Promise((resolve2, reject2) => {
                 self.readStream = fs.createReadStream(src);
                 self.writeStream = self.sftp.createWriteStream(tmp);
@@ -111,9 +120,18 @@ SCP.prototype.transfer_file = function (src, dst, progress) {
                     });
                 }
             }))
-            .then(() => new Promise((resolve2, reject2) => self.sftp.rename(tmp, dst, err => err && reject2(err) || resolve2())))
+            .then(() => no_tmp || new Promise((resolve2, reject2) => self.sftp.rename(tmp, dst, err => {
+                if (err) reject2(err);
+                else resolve2();
+            })))
             .then(() => resolve())
-            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
+            .catch(err => {
+                if (err && err.file_exists) resolve();
+                else {
+                    reject(err);
+                    if (!err || !err.not_found) self.close_connection();
+                }
+            });
     });
 };
 
@@ -151,7 +169,7 @@ module.exports = (actions, config) => {
                     progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 }
 
-                return workers[destination_key].transfer_file(source, target, progress);
+                return workers[destination_key].transfer_file(source, target, progress, params.direct);
             });
     }
     return actions;

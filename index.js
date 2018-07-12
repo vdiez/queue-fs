@@ -131,13 +131,13 @@ module.exports = config => {
                             resolve({error: reason, path: file.path});
                         }
                         else if (actions[i].critical || (reason && reason.critical_failed)) {
-                            if (actions[i].critical) winston.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: " + reason);
-                            else winston.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: " + reason);
+                            if (actions[i].critical) winston.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
+                            else winston.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: ", reason);
                             failed_queues.push(queue);
                             reject(reason.toString());
                         }
                         else {
-                            winston.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: " + reason);
+                            winston.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
                             resolve({error: reason, path: file.path});
                         }
                         return reason;

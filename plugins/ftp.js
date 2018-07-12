@@ -11,6 +11,10 @@ function FTP(params) {
 
     self.params = {};
     self.params.host = params.host;
+    if (params.secure) {
+        self.params.secure = true;
+        self.params.secureOptions = {rejectUnauthorized: false};
+    }
     if (params.port) self.params.port = params.port;
     if (params.username) self.params.user = params.username;
     if (params.password) self.params.password = params.password;
@@ -47,18 +51,33 @@ FTP.prototype.open_connection = function() {
     });
 };
 
-FTP.prototype.transfer_file = function (src, dst, progress) {
+FTP.prototype.transfer_file = function (src, dst, progress, no_tmp) {
     let self = this;
     while (dst.startsWith('/')) dst = dst.slice(1);
-    let tmp = path.posix.join(path.dirname(dst), ".tmp", path.basename(dst));
+    let tmp = no_tmp && dst || path.posix.join(path.posix.dirname(dst), ".tmp", path.posix.basename(dst));
     let src_stats;
 
     return new Promise((resolve, reject) => {
         self.queue = Promise.resolve(self.queue)
-            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+            .then(() => new Promise((resolve2, reject2) => fs.stat(src, (err, stats) => {
+                if (err) reject2({not_found: true});
+                else {
+                    src_stats = stats;
+                    resolve2();
+                }
+            })))
             .then(() => self.open_connection())
-            .then(() => new Promise((resolve2, reject2) => self.client.size(dst, (err, size) => !err && (size === src_stats.size) && resolve() && reject2({file_exists: true}) || resolve2())))
-            .then(() => new Promise((resolve2, reject2) => self.client.mkdir(path.posix.join(path.dirname(dst), ".tmp"), true, err => err && reject2(err) || resolve2())))
+            .then(() => new Promise((resolve2, reject2) => self.client.size(dst, (err, size) => {
+                if (!err && (size === src_stats.size)) reject2({file_exists: true}) ;
+                else resolve2();
+            })))
+            .then(() => new Promise((resolve2, reject2) => {
+                if (path.posix.dirname(tmp) === ".") resolve2();
+                else self.client.mkdir(path.posix.dirname(tmp), true, err => {
+                    if (err) reject2(err);
+                    else resolve2();
+                })
+            }))
             .then(() => new Promise((resolve2, reject2) => {
                 self.readStream = fs.createReadStream(src);
                 self.client.put(self.readStream, tmp, err => err && reject2(err) || resolve2());
@@ -80,9 +99,18 @@ FTP.prototype.transfer_file = function (src, dst, progress) {
                     });
                 }
             }))
-            .then(() => new Promise((resolve2, reject2) => self.client.rename(tmp, dst, err => err && reject2(err) || resolve2())))
+            .then(() => no_tmp || new Promise((resolve2, reject2) => self.client.rename(tmp, dst, err => {
+                if (err) reject2(err);
+                else resolve2();
+            })))
             .then(() => resolve())
-            .catch(err => err && err.file_exists && resolve() || reject(err) && (!err || !err.not_found) && self.close_connection());
+            .catch(err => {
+                if (err && err.file_exists) resolve();
+                else {
+                    reject(err);
+                    if (!err || !err.not_found) self.close_connection();
+                }
+            });
     });
 };
 
@@ -112,7 +140,7 @@ module.exports = (actions, config) => {
                 target = sprintf(target, file);
                 if (!params.target_is_filename) target = path.posix.join(target, file.filename);
 
-                let destination = {host: params.host, username: params.username, password: params.password, port: params.port};
+                let destination = {host: params.host, username: params.username, password: params.password, port: params.port, secure: params.secure};
                 let destination_key = JSON.stringify(destination);
                 if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new FTP(destination);
 
@@ -123,7 +151,7 @@ module.exports = (actions, config) => {
                     progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 }
 
-                return workers[destination_key].transfer_file(source, target, progress);
+                return workers[destination_key].transfer_file(source, target, progress, params.direct);
             });
     }
     return actions;
