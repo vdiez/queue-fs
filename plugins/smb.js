@@ -87,30 +87,29 @@ let wamp = require('simple_wamp');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('smb')) {
-        actions.smb = (file, params) => Promise.resolve(typeof params === "function" ? params(file) : params)
-            .then(params => {
-                if (!params) throw "Missing parameters";
-                let target = params.target || './';
-                let source = file.dirname;
-                if (params.hasOwnProperty('source')) source = params.source;
-                source = sprintf(source, file);
-                if (!params.source_is_filename) source = path.posix.join(source, file.filename);
-                target = sprintf(target, file);
-                if (!params.target_is_filename) target = path.posix.join(target, file.filename);
+        actions.smb = (file, params) => {
+            if (!params) throw "Missing parameters";
+            let target = params.target || './';
+            let source = file.dirname;
+            if (params.hasOwnProperty('source')) source = params.source;
+            source = sprintf(source, file);
+            if (!params.source_is_filename) source = path.posix.join(source, file.filename);
+            target = sprintf(target, file);
+            if (!params.target_is_filename) target = path.posix.join(target, file.filename);
 
-                let destination = {host: params.host, domain: params.domain, share: params.share, username: params.username, password: params.password, port: params.port};
-                let destination_key = JSON.stringify(destination);
-                if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SMB(destination);
+            let destination = {host: params.host, domain: params.domain, share: params.share, username: params.username, password: params.password, port: params.port};
+            let destination_key = JSON.stringify(destination);
+            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SMB(destination);
 
-                let progress = undefined;
-                let wamp_router = params.wamp_router || config.default_router;
-                let wamp_realm = params.wamp_realm || config.default_realm;
-                if (params.job_id && params.progress && wamp_router && wamp_realm) {
-                    progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
-                }
+            let progress = undefined;
+            let wamp_router = params.wamp_router || config.default_router;
+            let wamp_realm = params.wamp_realm || config.default_realm;
+            if (params.job_id && params.progress && wamp_router && wamp_realm) {
+                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
+            }
 
-                return workers[destination_key].transfer_file(source, target, progress, params.direct);
-            });
+            return workers[destination_key].transfer_file(source, target, progress, params.direct);
+        };
     }
     return actions;
 };

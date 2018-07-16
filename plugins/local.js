@@ -5,34 +5,34 @@ let wamp = require('simple_wamp');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('local')) {
-        actions.local = (file, params) => Promise.resolve(typeof params === "function" ? params(file) : params)
-            .then(params => new Promise((resolve, reject) => {
-                if (!params) throw "Missing command line";
-                let parser, target, source = file.dirname;
+        actions.local = (file, params) => {
+            if (!params) throw "Missing command line";
+            let parser, target, source = file.dirname;
 
-                if (params.hasOwnProperty('source')) source = params.source;
-                source = sprintf(source, file);
-                if (!params.source_is_filename) source = path.posix.join(source, file.filename);
-                if (params.hasOwnProperty('target')) {
-                    target = sprintf(params.target, file);
-                    if (!params.target_is_filename) target = path.posix.join(target, file.filename);
-                }
+            if (params.hasOwnProperty('source')) source = params.source;
+            source = sprintf(source, file);
+            if (!params.source_is_filename) source = path.posix.join(source, file.filename);
+            if (params.hasOwnProperty('target')) {
+                target = sprintf(params.target, file);
+                if (!params.target_is_filename) target = path.posix.join(target, file.filename);
+            }
 
-                let progress = undefined;
-                let wamp_router = params.wamp_router || config.default_router;
-                let wamp_realm = params.wamp_realm || config.default_realm;
-                if (params.job_id && params.progress && wamp_router && wamp_realm) {
-                    progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
-                    parser = require('../helpers/stream_parsers')(params.progress, progress);
-                }
+            let progress = undefined;
+            let wamp_router = params.wamp_router || config.default_router;
+            let wamp_realm = params.wamp_realm || config.default_realm;
+            if (params.job_id && params.progress && wamp_router && wamp_realm) {
+                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
+                parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
+            }
 
+            return new Promise((resolve, reject) => {
                 let child = exec(sprintf(params.cmd, {
                     source: '"' + source.replace(/"/g, "\\\"") + '"',
                     target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
                     dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
                     filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
                     path: '"' + file.path.replace(/"/g, "\\\"") + '"'
-                }), (err, stdout, stderr) => {
+                }), params.options, (err, stdout, stderr) => {
                     if (err) reject(err);
                     else resolve(parser && parser.data);
                 });
@@ -41,7 +41,8 @@ module.exports = (actions, config) => {
                     child.stderr.on('data', data => parser.parse(data));
                     child.stdout.on('data', data => parser.parse(data));
                 }
-            }));
+            });
+        };
     }
     return actions;
 };

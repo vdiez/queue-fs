@@ -56,14 +56,6 @@ module.exports = config => {
                 }
 
                 let publish = () => {};
-                if (actions[i].params && actions[i].params.job_id && actions[i].params.progress) {
-                    let wamp_router = actions[i].params.wamp_router || config.default_router;
-                    let wamp_realm = actions[i].params.wamp_realm || config.default_realm;
-                    if (wamp_router && wamp_realm) {
-                        publish = content => wamp(wamp_router, wamp_realm, 'publish', [actions[i].params.topic || 'task_progress', [actions[i].params.job_id, file, content]]);
-                    }
-                }
-
                 winston.info("Action " + display(actions[i]) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(results => {
@@ -74,7 +66,6 @@ module.exports = config => {
                         let execute = () => new Promise((resolve_execution, reject_execution) => {
                             let timeout;
                             winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
-                            publish({description: actions[i].params.description});
 
                             if (actions[i].timer && actions[i].timer.timeout) {
                                 timeout = setTimeout(() => {
@@ -95,7 +86,18 @@ module.exports = config => {
                                 })
                                 .then(result => {
                                     if (!result) throw {does_not_apply: true};
-                                    return method(file, actions[i].params);
+                                    return Promise.resolve(typeof actions[i].params === "function" ? actions[i].params(file) : actions[i].params);
+                                })
+                                .then(params => {
+                                    if (params && params.job_id && params.progress) {
+                                        let wamp_router = params.wamp_router || config.default_router;
+                                        let wamp_realm = params.wamp_realm || config.default_realm;
+                                        if (wamp_router && wamp_realm) {
+                                            publish = content => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, content]]);
+                                            publish({description: params.description});
+                                        }
+                                    }
+                                    return method(file, params);
                                 })
                                 .then(result => {
                                     if (timeout) clearTimeout(timeout);
