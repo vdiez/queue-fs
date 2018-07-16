@@ -28,7 +28,6 @@ module.exports = (actions, config) => {
                 progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 parser = require('../helpers/stream_parsers')('lftp', progress);
             }
-            console.log("sudo mkdir -p '" + dirname + "' '" + tmp_dirname + "'; sudo chown " + (params.username || config.default_username) + " '" + dirname + "' '" + tmp_dirname + "'; lftp -u " + params.origin_username + "," + params.origin_password + " " + params.origin_host + " -p " + (params.origin_port || 21) + ' -e "set net:timeout 10; set net:max-retries 1; set xfer:clobber yes; pget -c -n ' + (params.concurrency || 8) + " '" + source.replace(/'/g, "\\'").replace(/"/g, "\\\"") + "' -o '" + tmp.replace(/'/g, "\\'").replace(/"/g, "\\\"") + '\'; bye" && mv -f "' + tmp.replace(/"/g, "\\\"") + '" "' + target.replace(/"/g, "\\\"") + '"')
             return ssh({
                 id: (params.host + queue_counter[params.host]++ % (config.parallel_connections || 5)),
                 host: params.host,
