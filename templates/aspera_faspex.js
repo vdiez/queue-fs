@@ -49,6 +49,8 @@ module.exports = (params, config) => {
                             "note": file.keywords || file.base_clip_id,
                             "recipients": [params.recipient],
                             "send_upload_result": true,
+                            "notify_on_upload": false,
+                            "notify_on_download": false,
                             "delete_after_download_policy": 2,
                             "use_encryption_at_rest": false,
                             "sources": [
