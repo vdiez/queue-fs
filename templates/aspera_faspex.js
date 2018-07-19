@@ -2,6 +2,7 @@ let xml = require('libxmljs');
 let sprintf = require('sprintf-js').sprintf;
 let mongodb = require('mongodb');
 let path = require('path');
+let winston = require('winston');
 
 module.exports = (params, config) => {
     let actions = [];
@@ -87,7 +88,7 @@ module.exports = (params, config) => {
             let downloaded = false;
 
             metadata.package_id = data.get("//field[@name='_pkg_uuid']");
-            if (metadata.package_id) metadata.package_id = tmp.text().trim();
+            if (metadata.package_id) metadata.package_id = metadata.package_id.text().trim();
             let download = data.get("//downloads/download");
             while (download) {
                 let scope = download.get('scope');
