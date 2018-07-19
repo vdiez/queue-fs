@@ -102,7 +102,7 @@ module.exports = (params, config) => {
         }
         catch (e) {
             winston.error("Error parsing Aspera XML for file " + file.filename + ": ", e);
-            return false;
+            return true;
         }
     }});
     actions.push({action: "wamp", params: {method: "publish", topic: "update_clip", xargs: file => ({clip_id: file.clip_id, type: file.type, event: "delivered", box: {name: params.destination_name}})}});
