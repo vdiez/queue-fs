@@ -88,6 +88,7 @@ module.exports = (params, config) => {
             let data = xml.parseXmlString(file.results["aspera_query_package"]).root();
             let metadata = {};
             let downloaded = false;
+            let central_ids = [];
 
             metadata.package_id = data.get("//field[@name='_pkg_uuid']");
             if (metadata.package_id) metadata.package_id = metadata.package_id.text().trim();
@@ -95,11 +96,14 @@ module.exports = (params, config) => {
             while (download) {
                 let scope = download.get('scope');
                 let status = download.get('status');
+                let central_id = download.get('central_id');
                 if (scope && status) {
                     if (scope.text().trim().toLowerCase() === "full" && status.text().trim().toLowerCase() === "completed") downloaded = true;
+                    if (status.text().trim().toLowerCase() === "transferring" || status.text().trim().toLowerCase() === "completed") central_ids.push(central_id && central_id.text().trim() || "no_id");
                 }
                 download = download.nextElement();
             }
+            if (downloaded && (central_ids.length > 1)) file.results['multiple_transfers'] = true;
             return !downloaded;
         }
         catch (e) {
@@ -108,5 +112,12 @@ module.exports = (params, config) => {
         }
     }});
     actions.push({action: "wamp", params: {method: "publish", topic: "update_clip", xargs: file => ({clip_id: file.clip_id, type: file.type, event: "delivered", box: {name: params.destination_name}})}});
+    actions.push({action: "email", requisite: file => file.results['multiple_transfers'], params: file => {
+        return {
+            body: "Multiple transfers detected from user " + params.recipient,
+            recipient: "tech-digital-distrib@eurovision.net",
+            subject: "Multiple transfers"
+        }
+    }});
     return actions;
 };

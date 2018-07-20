@@ -63,68 +63,67 @@ module.exports = config => {
                         let method = load_function(actions[i].action);
                         if (!method) throw actions[i].action + " is not recognized.";
 
-                        let execute = () => new Promise((resolve_execution, reject_execution) => {
-                            let timeout;
-                            winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
+                        return new Promise((resolve_execution, reject_execution) => {
+                            let execute = (() => {
+                                let timeout;
+                                winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
 
-                            if (actions[i].timer && actions[i].timer.timeout) {
-                                timeout = setTimeout(() => {
-                                    winston.info("Timeout for " + display(actions[i]) + " on file " + file.path);
-                                    if (actions[i].timer.action) {
-                                        let effect = load_function(actions[i].timer.action);
-                                        if (effect) effect(file, actions[i].timer.params);
-                                    }
-                                    if (actions[i].timer.hard) reject_execution("timeout");
-                                }, actions[i].timer.timeout);
-                            }
-
-                            let requisite = true;
-                            if  (actions[i].requisite && typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
-                            Promise.resolve(requisite)
-                                .catch(() => {
-                                    throw {does_not_apply: true};
-                                })
-                                .then(result => {
-                                    if (!result) throw {does_not_apply: true};
-                                    return Promise.resolve(typeof actions[i].params === "function" ? actions[i].params(file) : actions[i].params);
-                                })
-                                .then(params => {
-                                    if (params && params.job_id && params.progress) {
-                                        let wamp_router = params.wamp_router || config.default_router;
-                                        let wamp_realm = params.wamp_realm || config.default_realm;
-                                        if (wamp_router && wamp_realm) {
-                                            publish = content => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, content]]);
-                                            publish({description: params.description});
+                                if (actions[i].timer && actions[i].timer.timeout) {
+                                    timeout = setTimeout(() => {
+                                        winston.info("Timeout for " + display(actions[i]) + " on file " + file.path);
+                                        if (actions[i].timer.action) {
+                                            let effect = load_function(actions[i].timer.action);
+                                            if (effect) effect(file, actions[i].timer.params);
                                         }
-                                    }
-                                    return method(file, params);
-                                })
-                                .then(result => {
-                                    if (timeout) clearTimeout(timeout);
-                                    resolve_execution(result);
-                                })
-                                .catch(error => {
-                                    if (timeout) clearTimeout(timeout);
-                                    reject_execution(error);
-                                });
-                        })
-                        .then(result => {
-                            if (actions[i].id) file.results[actions[i].id] = result;
-                            let post;
-                            if (actions[i].loop_while && typeof actions[i].loop_while === "function") post = actions[i].loop_while(file);
-                            return Promise.resolve(post)
-                                .then(loop => {
-                                    if (loop) setTimeout(execute, 5000);
-                                    else {
-                                        resolve();
-                                        winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
-                                        publish({end: 1});
-                                        return result;
-                                    }
-                                });
-                        });
+                                        if (actions[i].timer.hard) reject_execution("timeout");
+                                    }, actions[i].timer.timeout);
+                                }
 
-                        return execute();
+                                let requisite = true;
+                                if (actions[i].requisite && typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
+                                Promise.resolve(requisite)
+                                    .catch(() => {
+                                        throw {does_not_apply: true};
+                                    })
+                                    .then(result => {
+                                        if (!result) throw {does_not_apply: true};
+                                        return Promise.resolve(typeof actions[i].params === "function" ? actions[i].params(file) : actions[i].params);
+                                    })
+                                    .then(params => {
+                                        if (params && params.job_id && params.progress) {
+                                            let wamp_router = params.wamp_router || config.default_router;
+                                            let wamp_realm = params.wamp_realm || config.default_realm;
+                                            if (wamp_router && wamp_realm) {
+                                                publish = content => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, content]]);
+                                                publish({description: params.description});
+                                            }
+                                        }
+                                        return method(file, params);
+                                    })
+                                    .then(result => {
+                                        if (timeout) clearTimeout(timeout);
+                                        if (actions[i].id) file.results[actions[i].id] = result;
+                                        let post;
+                                        if (actions[i].loop_while && typeof actions[i].loop_while === "function") post = actions[i].loop_while(file);
+                                        return Promise.resolve(post)
+                                            .then(loop => {
+                                                if (loop) setTimeout(execute, 5000);
+                                                else {
+                                                    resolve_execution(result);
+                                                    resolve();
+                                                    winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
+                                                    publish({end: 1});
+                                                    return result;
+                                                }
+                                            });
+                                    })
+                                    .catch(error => {
+                                        if (timeout) clearTimeout(timeout);
+                                        reject_execution(error);
+                                    });
+                            });
+                            execute();
+                        });
                     })
                     .catch(reason => {
                         publish({fail: reason && reason.toString()});
