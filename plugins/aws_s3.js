@@ -42,7 +42,15 @@ module.exports = (actions, config) => {
                     });
                 })
                 .catch(err => winston.error("Error creating AWS S3 bucket: ", err))
-                .then(() => new Promise((resolve2, reject2) => fs.stat(source, (err, stats) => err && reject2({not_found: true}) || (src_stats = stats) && resolve2())))
+                .then(() => new Promise((resolve2, reject2) => {
+                    fs.stat(source, (err, stats) => {
+                        if (err) reject2({not_found: true});
+                        else {
+                            src_stats = stats;
+                            resolve2();
+                        }
+                    });
+                }))
                 .then(() => new Promise((resolve, reject) => {
                     S3.headObject({Bucket: params.bucket, Key: target}, (err, data) => {
                         if (err) resolve();

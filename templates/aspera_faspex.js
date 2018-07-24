@@ -24,10 +24,7 @@ module.exports = (params, config) => {
             let source = params.source || "%(type)s/%(filename)s";
             let sources = [sprintf(source, file)];
             if (result && result.extension !== file.extension) {
-                result.filename = result.clip_id + result.extension;
-                result.file = path.posix.basename(result.filename);
-                result.base_clip_id = path.posix.basename(result.clip_id);
-                result.path = path.posix.join(result.dirname, result.filename);
+                result.path = result._id;
                 sources.push(sprintf(source, result));
             }
             return {
@@ -45,8 +42,8 @@ module.exports = (params, config) => {
                     },
                     json: {
                         "delivery": {
-                            "title": file.type + " - " + (file.match_name || file.keywords || file.base_clip_id),
-                            "note": file.keywords || file.base_clip_id,
+                            "title": file.type + " - " + (file.match_name || file.keywords || file.filename),
+                            "note": file.keywords || file.filename,
                             "recipients": [params.recipient],
                             "send_upload_result": true,
                             "notify_on_upload": false,
@@ -65,7 +62,7 @@ module.exports = (params, config) => {
             };
         })
     });
-    actions.push({id: "aspera_query_package", action: "rest_call", critical: true, params: file => {
+    actions.push({id: "aspera_query_package", action: "rest_call", requisite: () => params.check_package !== false, critical: true, params: file => {
         let url = file.results['aspera_create_package'];
         if (!url.hasOwnProperty("links") || !url.links.hasOwnProperty('status')) throw "Could not create aspera package";
         url = url.links.status;
