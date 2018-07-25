@@ -24,7 +24,13 @@ module.exports = (actions, config) => {
                 progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
             }
-
+console.log(sprintf(params.cmd, {
+    source: '"' + source.replace(/"/g, "\\\"") + '"',
+    target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
+    dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
+    filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
+    path: '"' + file.path.replace(/"/g, "\\\"") + '"'
+}));
             return new Promise((resolve, reject) => {
                 let child = exec(sprintf(params.cmd, {
                     source: '"' + source.replace(/"/g, "\\\"") + '"',

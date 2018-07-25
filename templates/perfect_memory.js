@@ -21,6 +21,7 @@ module.exports = (params, config) => {
         .then(result => {
             if (!result) throw "Original file for " + file.filename + " is not available. Failed ffprobe";
             return {
+                job_id: params.job_id,
                 cmd: "ffprobe %(source)s",
                 progress: "ffprobe",
                 source: result._id,
