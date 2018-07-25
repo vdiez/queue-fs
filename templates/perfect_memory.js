@@ -20,12 +20,11 @@ module.exports = (params, config) => {
         .then(() => db.collection(config.db_files).findOne({clip_id: file.clip_id, property: "original", type: file.type}))
         .then(result => {
             if (!result) throw "Original file for " + file.filename + " is not available. Failed ffprobe";
-            let path = require('path');
-            let uri = path.posix.join(result.dirname, result.clip_id + result.extension);
             return {
                 cmd: "ffprobe %(source)s",
                 progress: "ffprobe",
-                source: uri
+                source: result._id,
+                source_is_filename: true
             };
         })
     });
