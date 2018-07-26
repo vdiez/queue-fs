@@ -2,6 +2,7 @@ let exec = require('child_process').exec;
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let wamp = require('simple_wamp');
+let winston = require('winston');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('local')) {
