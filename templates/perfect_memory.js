@@ -17,6 +17,8 @@ module.exports = (params, config) => {
                 resolve();
             });
         })
+        .then(() => db.collection(config.db_files).findOne({clip_id: file.clip_id, property: "thumbnail", type: file.type}))
+        .then(result => {if (result) file.results['thumbnail'] = result})
         .then(() => db.collection(config.db_files).findOne({clip_id: file.clip_id, property: "original", type: file.type}))
         .then(result => {
             if (!result) throw "Original file for " + file.filename + " is not available. Failed ffprobe";
@@ -27,10 +29,6 @@ module.exports = (params, config) => {
                 source: result._id,
                 source_is_filename: true
             };
-        })
-        .then(() => db.collection(config.db_files).findOne({clip_id: file.clip_id, property: "thumbnail", type: file.type}))
-        .then(result => {
-            if (result) file.results['thumbnail'] = result;
         })
     });
     actions.push({action: "rest_call", requisite: file => file.property !== "logging" && file.property !== "thumbnail", critical: true, params: file => {
