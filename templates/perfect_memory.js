@@ -64,7 +64,7 @@ module.exports = (params, config) => {
                         "name": "ingest_video_asset",
                         "inputs": {
                         "video_parameters": {
-                            "value": new Buffer(JSON.stringify()).toString("base64"),
+                            "value": new Buffer(JSON.stringify(body)).toString("base64"),
                                 "type": "binary"
                         }
                     }
