@@ -3,7 +3,7 @@ let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let queue_counter = {};
 let wamp = require('simple_wamp');
-
+let winston = require('winston');
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('remote')) {
         actions.remote = (file, params) => {
@@ -18,8 +18,6 @@ module.exports = (actions, config) => {
                 if (!params.target_is_filename) target = path.posix.join(target, file.filename);
             }
 
-            if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
-
             let progress = undefined;
             let wamp_router = params.wamp_router || config.default_router;
             let wamp_realm = params.wamp_realm || config.default_realm;
@@ -27,19 +25,23 @@ module.exports = (actions, config) => {
                 progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
                 parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
             }
+            if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
+            let cmd = sprintf(params.cmd, {
+                source: '"' + source.replace(/"/g, "\\\"") + '"',
+                target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
+                dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
+                filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
+                path: '"' + file.path.replace(/"/g, "\\\"") + '"'
+            });
+            winston.debug("Executing on " + params.host + ":" + cmd);
+
             return ssh({
                 id: (params.host + queue_counter[params.host]++ % (config.parallel_connections || 5)),
                 host: params.host,
                 username: params.username || config.default_username,
                 password: params.password || config.default_password,
-                cmd: sprintf(params.cmd, {
-                    source: '"' + source.replace(/"/g, "\\\"") + '"',
-                    target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
-                    dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
-                    filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
-                    path: '"' + file.path.replace(/"/g, "\\\"") + '"'
-                }),
-                parser: parser && parser.parse
+                cmd: cmd,
+                parser: parser
             });
         };
     }
