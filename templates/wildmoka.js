@@ -6,14 +6,14 @@ module.exports = params => {
         params.host = "ftp.us.wildmoka.com";
         params.direct = true;
         params.secure = true;
+        params.target = "%(file)s";
         return params;
     }});
     actions.push({action: "ftp", critical: true, params: file => {
         let path = require('path');
         let sprintf = require('sprintf-js').sprintf;
-        let target = params.target || './';
+        let target = "%(file)s";
         target = sprintf(target, file);
-        if (!params.target_is_filename) target = path.posix.join(target, file.filename);
         let contents = {
             "title": file.asset_name,
             "create_clip": true,
