@@ -42,7 +42,7 @@ module.exports = (params, config) => {
                 "video_parameters": {
                     "value": new Buffer(JSON.stringify({
                         //"url": "https://s3." + params.region + ".amazonaws.com/" + params.bucket + "/" + file.filename,
-                        "url": "https://" + params.bucket + ".s3.amazonaws.com/" + file.filename,
+                        "url": encodeURI("http://" + params.bucket + ".s3.amazonaws.com/" + file.filename),
                         "assetName": file.asset_name,
                         "eventId": file.event_id,
                         "tcIn": file.results['ffprobe_metadata'].timecode,
