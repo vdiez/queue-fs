@@ -4,7 +4,7 @@ module.exports = (params, config) => {
     let actions = [];
     let db;
     params.make_public = true;
-    actions.push({action: "aws_s3", critical:true, params: params});
+    actions.push({action: "aws_s3", requisite: file => file.property !== "logging", critical:true, params: params});
     actions.push({id: "ffprobe_metadata", requisite: file => file.property !== "logging", action: "local", critical:true, params: file => new Promise((resolve, reject) => {
             if (db) return resolve();
             mongodb.MongoClient.connect(new mongodb.Server(config.db_host, config.db_port), (err, client) => {
