@@ -1,4 +1,4 @@
-module.exports = (params) => {
+module.exports = params => {
     let actions = [];
     params.cmd = "speedtest-cli --simple";
     params.progress = "speedtest";

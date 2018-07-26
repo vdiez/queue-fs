@@ -1,7 +1,6 @@
 let fs = require('fs-extra');
-let path = require('path');
 
-module.exports = (params, config) => {
+module.exports = params => {
     let actions = [];
     actions.push({action: "ftp", critical:true, params: file => {
         params.host = "ftp.us.wildmoka.com";
@@ -10,17 +9,21 @@ module.exports = (params, config) => {
         return params;
     }});
     actions.push({action: "ftp", critical: true, params: file => {
+        let path = require('path');
+        let target = params.target || './';
+        target = sprintf(target, file);
+        if (!params.target_is_filename) target = path.posix.join(target, file.filename);
         let contents = {
             "title": file.asset_name,
             "create_clip": true,
-            "data_file": file.filename,
+            "data_file": path.posix.normalize(target),
             "mark_as_decorator": false
         };
         return fs.writeFile(path.posix.join(file.dirname, file.filename + ".json"), JSON.stringify(contents))
             .then(() => {
                 params.source = path.posix.join(file.dirname, file.filename + ".json");
                 params.source_is_filename = true;
-                params.target = file.filename + ".json";
+                params.target = path.posix.normalize(target) + ".json";
                 return params;
             });
     }});

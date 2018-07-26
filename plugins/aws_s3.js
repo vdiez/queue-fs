@@ -2,6 +2,7 @@ let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let winston = require('winston');
+let mime = require('mime-types');
 let wamp = require('simple_wamp');
 
 module.exports = (actions, config) => {
@@ -64,7 +65,7 @@ module.exports = (actions, config) => {
                     let fileStream = fs.createReadStream(source);
                     fileStream.on('error', err => reject(err));
                     let options = params.options || {partSize: 5 * 1024 * 1024, queueSize: 5};
-                    let result = S3.upload({Bucket: params.bucket, Key: target, Body: fileStream}, options, (err,data) => {
+                    let result = S3.upload({Bucket: params.bucket, Key: target, Body: fileStream, ContentType: mime.lookup(source)}, options, (err,data) => {
                         if (err) reject(err);
                         else resolve();
                     });

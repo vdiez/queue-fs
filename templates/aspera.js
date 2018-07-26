@@ -2,7 +2,7 @@ let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 let fs = require('fs-extra');
 
-module.exports = (params) => {
+module.exports = params => {
     let actions = [];
     actions.push({action: "local", critical:true, params: file => {
         let filename = path.posix.join(file.dirname, file.filename);

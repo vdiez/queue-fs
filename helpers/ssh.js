@@ -59,10 +59,10 @@ module.exports = function(params) {
                                 if (data.indexOf('sudo') >= 0 && data.indexOf('password') >= 0) {
                                     stream.write(params.password + '\n');
                                 }
-                                if (params.parser) params.parser.parse(data);
+                                if (params.parser) params.parser(data);
                             }).stderr.on('data', function (data) {
                                 winston.debug("SSH module: Stderr output of '" + params.cmd + "' on " + params.host + ": " + data);
-                                if (params.parser) params.parser.parse(data);
+                                if (params.parser) params.parser(data);
                             });
                         }
                     })
