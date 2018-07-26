@@ -31,6 +31,7 @@ module.exports = (params, config) => {
     });
     actions.push({action: "rest_call", requisite: file => file.property !== "logging", critical: true, params: file => {
         let path = require('path');
+        let sprintf = require('sprintf-js').sprintf;
         let target = params.target || './';
         target = sprintf(target, file);
         if (!params.target_is_filename) target = path.posix.join(target, file.filename);

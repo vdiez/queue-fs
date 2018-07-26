@@ -4,6 +4,7 @@ module.exports = params => {
     actions.push({action: "aws_s3", critical:true, params: params});
     actions.push({action: "rest_call", critical: true, params: file => {
         let path = require('path');
+        let sprintf = require('sprintf-js').sprintf;
         let target = params.target || './';
         target = sprintf(target, file);
         if (!params.target_is_filename) target = path.posix.join(target, file.filename);
