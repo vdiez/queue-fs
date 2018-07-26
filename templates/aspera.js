@@ -5,17 +5,24 @@ let fs = require('fs-extra');
 module.exports = params => {
     let actions = [];
     actions.push({action: "local", critical:true, params: file => {
-        let filename = path.posix.join(file.dirname, file.filename);
+        let source = file.dirname;
+        if (params.hasOwnProperty('source')) source = params.source;
+        source = sprintf(source, file);
+        if (!params.source_is_filename) source = path.posix.join(source, file.filename);
+        let target = sprintf(params.target, file);
+        if (!params.target_is_filename) target = path.posix.join(target, file.filename);
+
         if (file.size) params.parser_data = {total: file.size};
-        else params.parser_data = fs.stat(filename);
+        else params.parser_data = fs.stat(source);
 
         return Promise.resolve(params.parser_data)
             .then(stats => {
                 if (stats.size) params.parser_data = {total: stats.size};
-                let target = sprintf(params.target, file).replace(/"/g, "\\\"");
+                target = target.replace(/"/g, "\\\"");
+                source = source.replace(/"/g, "\\\"");
                 params.progress = "aspera";
                 params.options = {env: {ASPERA_SCP_PASS: params.password}};
-                params.cmd = "ascp -T --policy=fair -l 200m -k 1 -P " + (params.port || 22) + " -O " + (params.fasp_port || 33001) + " --user " + params.username + " " + filename + ' "' + params.host + ":" + target + '"';
+                params.cmd = "ascp -T -d --policy=fair -l 200m -k 1 -P " + (params.port || 22) + " -O " + (params.fasp_port || 33001) + " --user " + params.username + ' "c:' + source + '" "' + params.host + ":" + path.posix.dirname(target) + '"';
                 return params;
             })
     }});

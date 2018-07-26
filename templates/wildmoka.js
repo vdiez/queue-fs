@@ -20,9 +20,9 @@ module.exports = params => {
             "data_file": path.posix.normalize(target),
             "mark_as_decorator": false
         };
-        return fs.writeFile(path.posix.join(file.dirname, file.filename + ".json"), JSON.stringify(contents))
+        return fs.writeFile(path.posix.join(file.dirname, file.clip_id + (file.clip_times || "") + ".json"), JSON.stringify(contents))
             .then(() => {
-                params.source = path.posix.join(file.dirname, file.filename + ".json");
+                params.source = path.posix.join(file.dirname, file.clip_id + (file.clip_times || "") + ".json");
                 params.source_is_filename = true;
                 params.target = path.posix.normalize(target) + ".json";
                 return params;
