@@ -48,8 +48,8 @@ module.exports = (params, config) => {
         };
         if (file.results['thumbnail']) {
             let thumb = params.target || './';
-            thumb = sprintf(target, file.results['thumbnail']);
-            if (!params.target_is_filename) thumb = path.posix.join(thumb, file.filename);
+            thumb = sprintf(thumb, file.results['thumbnail']);
+            if (!params.target_is_filename) thumb = path.posix.join(thumb, file.results['thumbnail'].filename);
             body.thumbnail = encodeURI("http://" + params.bucket + ".s3.amazonaws.com/" + path.posix.normalize(thumb));
         }
 
