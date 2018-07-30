@@ -54,7 +54,7 @@ module.exports = (params, config) => {
         }
 
         return {request: {
-                url: "https://exchange-manager-api.beta-prod.eurovision-highway.tv/v1",
+                url: "https://exchange-manager-api.beta-prod.eurovision-highway.tv/v1/requests",
                     method: 'POST',
                     headers: {
                     'X-Api-Key': params.api_key
@@ -73,7 +73,7 @@ module.exports = (params, config) => {
     }});
     actions.push({id: "logging_contents", action: "read", requisite: file => file.property === "logging", critical: true, params: params});
     actions.push({action: "rest_call", requisite: file => file.property === "logging", critical: true, params: file => ({request: {
-        url: "https://exchange-manager-api.beta-prod.eurovision-highway.tv/v1",
+        url: "https://exchange-manager-api.beta-prod.eurovision-highway.tv/v1/requests",
         method: 'POST',
         headers: {
             'X-Api-Key': params.api_key
