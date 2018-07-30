@@ -26,7 +26,7 @@ module.exports = (actions, config) => {
                 parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
             }
             if (!queue_counter.hasOwnProperty(params.host)) queue_counter[params.host] = 0;
-            let cmd = sprintf(params.cmd_ready && params.cmd || params.cmd, {
+            let cmd = params.cmd_ready && params.cmd || sprintf(params.cmd, {
                 source: '"' + source.replace(/"/g, "\\\"") + '"',
                 target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
                 dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',
