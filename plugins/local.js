@@ -26,7 +26,7 @@ module.exports = (actions, config) => {
                 parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
             }
 
-            let cmd = sprintf(params.cmd, {
+            let cmd = params.cmd_ready && params.cmd || sprintf(params.cmd, {
                 source: '"' + source.replace(/"/g, "\\\"") + '"',
                 target: target ? '"' + target.replace(/"/g, "\\\"") + '"' : "",
                 dirname: '"' + file.dirname.replace(/"/g, "\\\"") + '"',

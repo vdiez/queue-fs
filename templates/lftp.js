@@ -30,6 +30,7 @@ module.exports = params => {
             description: params.description,
             progress: "lftp",
             cmd: cmd,
+            cmd_ready: true,
             username: params.username,
             password: params.password
         };
