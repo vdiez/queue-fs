@@ -19,7 +19,7 @@ module.exports = params => {
             cmd += "sudo mkdir -p '" + path.posix.dirname(tmp) + "'; sudo chown " + (params.username || config.default_username) + " '" + path.posix.dirname(tmp) + "';";
         }
 
-        cmd += "lftp -u \"" + params.origin_username.replace(/"/g, "\\\"") + "," + params.origin_password.replace(/"/g, "\\\"") + "\" " + params.origin_host + " -p " + (params.origin_port || 21);
+        cmd += "lftp -u '" + params.origin_username.replace(/'/g, "'\\\"'") + "," + params.origin_password.replace(/'/g, "'\\\"'") + "' " + params.origin_host + " -p " + (params.origin_port || 21);
         cmd += ' -e "set net:timeout 10; set net:max-retries 1; set xfer:clobber yes; pget -c -n ' + (params.concurrency || 8);
         cmd += " '" + source.replace(/'/g, "\\'").replace(/"/g, "\\\"") + "' -o '" + tmp.replace(/'/g, "\\'").replace(/"/g, "\\\"") + '\'; bye" ';
         if (!params.direct) cmd += '&& mv -f "' + tmp.replace(/"/g, "\\\"") + '" "' + target.replace(/"/g, "\\\"") + '"';
