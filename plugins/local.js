@@ -23,7 +23,7 @@ module.exports = (actions, config) => {
             let wamp_realm = params.wamp_realm || config.default_realm;
             if (params.job_id && params.progress && wamp_router && wamp_realm) {
                 progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
-                parser = require('../helpers/stream_parsers')(params.progress, progress, params.parser_data);
+                parser = require('./stream_parsers')(params.progress, progress, params.parser_data);
             }
 
             let cmd = params.cmd_ready && params.cmd || sprintf(params.cmd, {
