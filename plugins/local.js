@@ -33,6 +33,10 @@ module.exports = (actions, config) => {
                 filename: '"' + file.filename.replace(/"/g, "\\\"") + '"',
                 path: '"' + file.path.replace(/"/g, "\\\"") + '"'
             });
+
+            params.options = params.options || {};
+            params.options.maxBuffer = 1024 * 1024 * 10;
+
             return new Promise((resolve, reject) => {
                 winston.debug("Executing " + cmd);
                 let child = exec(cmd, params.options, (err, stdout, stderr) => {
