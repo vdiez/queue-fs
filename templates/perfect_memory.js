@@ -52,6 +52,7 @@ module.exports = (params, config) => {
             if (!params.target_is_filename) thumb = path.posix.join(thumb, file.results['thumbnail'].filename);
             body.thumbnail = encodeURI("http://" + params.bucket + ".s3.amazonaws.com/" + path.posix.normalize(thumb));
         }
+        if (file.filename.toLowerCase().startsWith('sync')) body.detachLogs = true;
 
         return {request: {
                 url: "https://exchange-manager-api.beta-prod.eurovision-highway.tv/v1/requests",
