@@ -28,7 +28,7 @@ module.exports = params => {
                     "mediaProviderAssetModels": [
                         {
                             "id": file.filename,
-                            "downloadUrl": "https://" + params.bucket + ".s3.amazonaws.com/" + path.posix.normalize(target),
+                            "downloadUrl": "http://" + params.bucket + ".s3.amazonaws.com/" + path.posix.normalize(target),
                             "type": "VIDEO",
                             "title": file.filename,
                             "caption": file.filename,
