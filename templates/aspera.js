@@ -22,7 +22,7 @@ module.exports = params => {
                 source = source.replace(/"/g, "\\\"");
                 params.progress = "aspera";
                 params.options = {env: {ASPERA_SCP_PASS: params.password}};
-                params.cmd = "ascp -T -d --policy=fair -l 200m -k 1 -P " + (params.port || 22) + " -O " + (params.fasp_port || 33001) + " --user " + params.username + ' "c:' + source + '" "' + params.host + ":" + path.posix.dirname(target) + '"';
+                params.cmd = "ascp -T -d --policy=fair -l 200m -k 1 -P " + (params.port || 22) + " -O " + (params.fasp_port || 33001) + " --user " + params.username + ' "' + source + '" "' + params.host + ":" + path.posix.dirname(target) + '"';
                 return params;
             })
     }});
