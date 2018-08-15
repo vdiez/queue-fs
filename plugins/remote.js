@@ -45,7 +45,7 @@ module.exports = (actions, config) => {
                 arbiter[id] = 0;
                 pending[id] = 0;
                 connections[id] = new Array(config.parallel_connections || 5).fill(1).map((_, idx) => idx);
-                servers[id] = new Array(config.parallel_connections || 5).fill(1).map((_, idx) => idx);
+                servers[id] = new Array(config.parallel_connections || 5).fill(null);
             }
 
             let cmd = params.cmd_ready && params.cmd || sprintf(params.cmd, {
