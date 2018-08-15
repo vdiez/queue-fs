@@ -22,26 +22,10 @@ module.exports = config => {
         }
     };
 
-    let load_templates = actions => {
-        let raw_actions = [];
-        for (let i = 0; i < actions.length; i++){
-            try {
-                let unfolded_actions = require('./templates/' + actions[i].action)(actions[i].params, config);
-                raw_actions = raw_actions.concat(unfolded_actions);
-                winston.info("Detected template action " + actions[i].action);
-            }
-            catch(e) {
-                raw_actions.push(actions[i]);
-            }
-        }
-        return raw_actions;
-    };
-
     return (file, actions) => {
         file.results = {};
         actions = [].concat(actions);
         let promises = [], failed_queues = [];
-        actions = load_templates(actions);
         for (let i = 0; i < actions.length; i++) {
             promises.push(new Promise((resolve, reject) => {
                 let queue = file.path;
