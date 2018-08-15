@@ -143,7 +143,6 @@ SCP.prototype.close_connection = function () {
 };
 
 let workers = {};
-let wamp = require('simple_wamp');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('scp')) {
@@ -161,14 +160,7 @@ module.exports = (actions, config) => {
             let destination_key = JSON.stringify(destination);
             if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SCP(destination);
 
-            let progress = undefined;
-            let wamp_router = params.wamp_router || config.default_router;
-            let wamp_realm = params.wamp_realm || config.default_realm;
-            if (params.job_id && params.progress && wamp_router && wamp_realm) {
-                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
-            }
-
-            return workers[destination_key].transfer_file(source, target, progress, params.direct);
+            return workers[destination_key].transfer_file(source, target, params.publish, params.direct);
         };
     }
     return actions;

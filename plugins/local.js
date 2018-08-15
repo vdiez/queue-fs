@@ -1,7 +1,6 @@
 let exec = require('child_process').exec;
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let wamp = require('simple_wamp');
 let winston = require('winston');
 
 module.exports = (actions, config) => {
@@ -18,13 +17,7 @@ module.exports = (actions, config) => {
                 if (!params.target_is_filename) target = path.posix.join(target, file.filename);
             }
 
-            let progress = undefined;
-            let wamp_router = params.wamp_router || config.default_router;
-            let wamp_realm = params.wamp_realm || config.default_realm;
-            if (params.job_id && params.progress && wamp_router && wamp_realm) {
-                progress = progress => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, progress]]);
-                parser = require('./stream_parsers')(params.progress, progress, params.parser_data);
-            }
+            if (params.publish && params.progress) parser = require('./stream_parsers')(params.progress, params.publish, params.parser_data);
 
             let cmd = params.cmd_ready && params.cmd || sprintf(params.cmd, {
                 source: '"' + source.replace(/"/g, "\\\"") + '"',

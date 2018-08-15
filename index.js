@@ -78,8 +78,11 @@ module.exports = config => {
                                             let wamp_router = params.wamp_router || config.default_router;
                                             let wamp_realm = params.wamp_realm || config.default_realm;
                                             if (wamp_router && wamp_realm) {
-                                                publish = content => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, content]]);
-                                                publish({description: params.description});
+                                                publish = content => {
+                                                    content.description = params.description;
+                                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, file, content]]);
+                                                };
+                                                params.publish = publish;
                                             }
                                         }
                                         return method(file, params);
