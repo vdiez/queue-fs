@@ -25,9 +25,10 @@ module.exports = (actions, config) => {
                     return fs.ensureDir(path.dirname(target))
                 })
                 .then(() => new Promise((resolve, reject) => {
+                    console.log(123)
                     let writeStream = fs.createWriteStream(target);
-                    writeStream.on('close', () => function () {
-                        if (!params.direct) resolve();
+                    writeStream.on('close', () => {
+                        if (params.direct) resolve();
                         else {
                             fs.move(target, final, {overwrite: true}, err => {
                                 if (err) reject(err);
