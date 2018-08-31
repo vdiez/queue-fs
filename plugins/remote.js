@@ -84,7 +84,7 @@ module.exports = (actions, config) => {
                                         })
                                         .then(con => {
                                             return new Promise((resolve2, reject2) => {
-                                                con.exec(params.cmd, {pty: true}, (err, stream) => {
+                                                con.exec(cmd, {pty: true}, (err, stream) => {
                                                     if (err) {
                                                         reject(err);
                                                         resolve2(err);
@@ -105,7 +105,7 @@ module.exports = (actions, config) => {
                                                             }
                                                             if (parser) parser.parse(data);
                                                         }).stderr.on('data', data => {
-                                                            winston.debug("SSH module: Stderr output of '" + params.cmd + "' on " + params.host + ": " + data);
+                                                            winston.debug("SSH module: Stderr output of '" + cmd + "' on " + params.host + ": " + data);
                                                             if (parser) parser.parse(data);
                                                         });
                                                     }
