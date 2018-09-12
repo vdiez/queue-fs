@@ -15,7 +15,7 @@ module.exports = (actions, config) => {
             let from = params.from || config.default_from;
             let recipient = params.recipient;
             let subject = "FILE " + source + ": " + params.subject;
-            let body = "Message from file " + source + "\n\n";
+            let body = "Message for file " + source + "\n\n";
             body += params.body;
 
             let mailOptions = {
@@ -24,6 +24,9 @@ module.exports = (actions, config) => {
                 subject: subject,
                 text: body
             };
+
+            if (params.bcc) mailOptions.bcc = params.bcc;
+            if (params.cc) mailOptions.cc = params.cc;
 
             return new Promise(function(resolve, reject) {
                 transporter.sendMail(mailOptions, function (error, info) {
