@@ -61,13 +61,17 @@ module.exports = (actions, config) => {
                         if (err) reject(err);
                         else resolve();
                     });
-
+                    let percentage = 0;
                     if (params.publish) result.on('httpUploadProgress', event => {
-                        params.publish({
-                            current: event.loaded,
-                            total: event.total,
-                            percentage: Math.round((event.loaded * 100) / event.total)
-                        });
+                        let tmp = Math.round(event.loaded * 100 / event.total);
+                        if (percentage != tmp) {
+                            percentage = tmp;
+                            params.publish({
+                                current: event.loaded,
+                                total: event.total,
+                                percentage: percentage
+                            });
+                        }
                     });
                 }))
                 .catch(err => {
