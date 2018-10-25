@@ -78,7 +78,11 @@ module.exports = config => {
                                             let wamp_router = params.wamp_router || config.default_router;
                                             let wamp_realm = params.wamp_realm || config.default_realm;
                                             if (wamp_router && wamp_realm) {
-                                                publish = content => wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, content]]);
+                                                publish = content => {
+                                                    content.current_step = i + 1;
+                                                    content.total_steps = actions.length;
+                                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, content]]);
+                                                };
                                                 params.publish = publish;
                                             }
                                         }
@@ -96,7 +100,6 @@ module.exports = config => {
                                                     resolve_execution(result);
                                                     resolve();
                                                     winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
-                                                    publish({end: 1});
                                                     return result;
                                                 }
                                             });
@@ -110,7 +113,6 @@ module.exports = config => {
                         });
                     })
                     .catch(reason => {
-                        publish({fail: reason && reason.toString()});
                         if (reason && reason.does_not_apply) {
                             winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + display(actions[i]));
                             resolve({error: reason, path: file.path});

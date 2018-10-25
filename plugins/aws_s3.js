@@ -35,12 +35,12 @@ module.exports = (actions, config) => {
                     });
                 })
                 .catch(err => winston.error("Error creating AWS S3 bucket: ", err))
-                .then(() => new Promise((resolve2, reject2) => {
+                .then(() => new Promise((resolve, reject) => {
                     fs.stat(source, (err, stats) => {
-                        if (err) reject2({not_found: true});
+                        if (err) reject({not_found: true});
                         else {
                             src_stats = stats;
-                            resolve2();
+                            resolve();
                         }
                     });
                 }))
