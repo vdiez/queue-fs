@@ -14,11 +14,15 @@ module.exports = actions => {
                     }
                     else {
                         winston.debug("REST API Result: ", body);
-                        if (params.succeed_status && ![].concat(params.succeed_status).includes(response.statusCode)) {
-                            winston.error("REST API statusCode " + response.statusCode + " not included in list of accepted status");
-                            reject(response.statusCode);
+                        if (params.succeed_status) {
+                            if (![].concat(params.succeed_status).includes(response.statusCode)) {
+                                winston.error("REST API statusCode " + response.statusCode + " not included in list of accepted status");
+                                reject(response.statusCode);
+                            }
+                            else resolve(body);
                         }
-                        resolve(body);
+                        else if (params.check_response && typeof params.check_response === "function") params.check_response(response, body, resolve, reject);
+                        else resolve(body);
                     }
                 });
                 if (params.sync === false) resolve();
