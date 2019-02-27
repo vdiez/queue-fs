@@ -1,7 +1,6 @@
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('aws_s3_download')) {
@@ -66,7 +65,7 @@ module.exports = (actions, config) => {
                     result.createReadStream().pipe(fileStream);
                 }))
                 .catch(err => {
-                    if (err && err.file_exists) return winston.info(target + " already exists");
+                    if (err && err.file_exists) return config.logger.info(target + " already exists");
                     throw err;
                 });
         };

@@ -12,17 +12,11 @@ module.exports = (actions, config) => {
             if (!params.source_is_filename) source = path.posix.join(source, file.filename);
 
             let transporter = nodemailer.createTransport(params.smtp_server || config.default_smtp_server);
-            let from = params.from || config.default_from;
-            let recipient = params.recipient;
-            let subject = "FILE " + source + ": " + params.subject;
-            let body = "Message for file " + source + "\n\n";
-            body += params.body;
-
             let mailOptions = {
-                from: from,
-                to: recipient,
-                subject: subject,
-                text: body
+                from: params.from || config.default_from,
+                to: params.recipient,
+                subject: params.subject,
+                text: params.body
             };
 
             if (params.bcc) mailOptions.bcc = params.bcc;

@@ -1,11 +1,11 @@
 let Client = require('ssh2').Client;
 let fs = require('fs-extra');
 let path = require('path');
-let winston = require('winston');
 let sprintf = require('sprintf-js').sprintf;
 
-function SCP(params) {
+function SCP(params, logger) {
     let self = this;
+    self.logger = logger;
     self.client = undefined;
     self.sftp = undefined;
     self.writeStream = undefined;
@@ -23,37 +23,37 @@ SCP.prototype.open_connection = function() {
     let self = this;
     if (!!self.sftp) return Promise.resolve();
 
-    winston.debug("Opening SCP connection to " + self.params.host);
+    self.logger.debug("Opening SCP connection to " + self.params.host);
     return new Promise((resolve, reject) => {
         self.client = new Client();
         self.client
             .on('ready', () => {
                 self.client.sftp((err, sftp) => {
                     if (err) {
-                        winston.error("Error on SCP connection " + self.params.host + " when opening SFTP stream: " + err);
+                        self.logger.error("Error on SCP connection " + self.params.host + " when opening SFTP stream: " + err);
                         reject(err);
                     }
                     else {
-                        winston.debug("SCP connection to " + self.params.host + " established.");
+                        self.logger.debug("SCP connection to " + self.params.host + " established.");
                         self.sftp = sftp;
                         resolve();
                     }
                 });
             })
             .on('error', err => {
-                winston.error("Error on SCP connection " + self.params.host + ": " + err);
+                self.logger.error("Error on SCP connection " + self.params.host + ": " + err);
                 self.client = undefined;
                 self.sftp = undefined;
                 reject(err);
             })
             .on('end', () => {
-                winston.debug("SCP connection to " + self.params.host + " ended.");
+                self.logger.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
                 reject("Connection ended");
             })
             .on('close', err => {
-                winston.debug("SCP connection to " + self.params.host + " ended.");
+                self.logger.debug("SCP connection to " + self.params.host + " ended.");
                 self.client = undefined;
                 self.sftp = undefined;
                 reject("Connection closed: " + err);
@@ -158,7 +158,7 @@ module.exports = (actions, config) => {
 
             let destination = {host: params.host, username: params.username, password: params.password, port: params.port};
             let destination_key = JSON.stringify(destination);
-            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SCP(destination);
+            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new SCP(destination, config.logger);
 
             return workers[destination_key].transfer_file(source, target, params.publish, params.direct);
         };

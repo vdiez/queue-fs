@@ -1,7 +1,6 @@
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 let request = require('request');
 
 module.exports = (actions, config) => {
@@ -70,7 +69,7 @@ module.exports = (actions, config) => {
                     get_request.pipe(fileStream);
                 }))
                 .catch(err => {
-                    if (err && err.file_exists) return winston.info(target + " already exists");
+                    if (err && err.file_exists) return config.logger.info(target + " already exists");
                     throw err;
                 });
         };

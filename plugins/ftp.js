@@ -2,10 +2,10 @@ let Client = require('ftp');
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 
-function FTP(params) {
+function FTP(params, logger) {
     let self = this;
+    self.logger = logger;
     self.client = undefined;
     self.queue = undefined;
 
@@ -24,27 +24,27 @@ FTP.prototype.open_connection = function() {
     let self = this;
     if (!!self.client) return Promise.resolve();
 
-    winston.debug("Opening FTP connection to " + self.params.host);
+    self.logger.debug("Opening FTP connection to " + self.params.host);
     return new Promise((resolve, reject) => {
         self.client = new Client();
         self.client
             .on('ready', () => {
-                winston.debug("FTP connection to " + self.params.host + " established.");
+                self.logger.debug("FTP connection to " + self.params.host + " established.");
                 resolve();
             })
             .on('error', err => {
                 self.client = undefined;
-                winston.error("Error on FTP connection " + self.params.host + ": " + err);
+                self.logger.error("Error on FTP connection " + self.params.host + ": " + err);
                 reject(err);
             })
             .on('end', () => {
                 self.client = undefined;
-                winston.debug("FTP connection to " + self.params.host + " ended.");
+                self.logger.debug("FTP connection to " + self.params.host + " ended.");
                 reject("Connection ended");
             })
             .on('close', err => {
                 self.client = undefined;
-                winston.debug("FTP connection to " + self.params.host + " closed.");
+                self.logger.debug("FTP connection to " + self.params.host + " closed.");
                 reject("Connection closed: " + err);
             })
             .connect(self.params);
@@ -140,7 +140,7 @@ module.exports = (actions, config) => {
 
             let destination = {host: params.host, username: params.username, password: params.password, port: params.port, secure: params.secure};
             let destination_key = JSON.stringify(destination);
-            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new FTP(destination);
+            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new FTP(destination, config.logger);
 
             return workers[destination_key].transfer_file(source, target, params.publish, params.direct);
         };

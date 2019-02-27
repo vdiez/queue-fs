@@ -2,10 +2,10 @@ let Client = require('node-nfsc');
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 
-function NFS(params) {
+function NFS(params, logger) {
     let self = this;
+    self.logger = logger;
     self.client = undefined;
     self.queue = undefined;
     self.root = undefined;
@@ -21,17 +21,17 @@ NFS.prototype.open_connection = function() {
     let self = this;
     if (self.root) return Promise.resolve();
 
-    winston.debug("Opening NFS connection to " + self.params.host);
+    self.logger.debug("Opening NFS connection to " + self.params.host);
     return new Promise((resolve, reject) => {
         self.client = new Client.V3(self.params);
         self.client.mount((err, root) => {
             if (err) {
-                winston.error("Error on NFS connection " + self.params.host + ": " + err);
+                self.logger.error("Error on NFS connection " + self.params.host + ": " + err);
                 self.root = undefined;
                 reject(err);
             }
             else {
-                winston.debug("NFS connection to " + self.params.host + " established.");
+                self.logger.debug("NFS connection to " + self.params.host + " established.");
                 self.root = root;
                 resolve();
             }
@@ -154,7 +154,7 @@ NFS.prototype.transfer_file = function (src, dst, progress, no_tmp) {
 NFS.prototype.close_connection = function () {
     let self = this;
     if (self.client) self.client.unmount(err => {
-        if (err) winston.error("Error disconnecting NGS mount: ", err);
+        if (err) self.logger.error("Error disconnecting NGS mount: ", err);
         self.client = undefined;
     });
 };
@@ -175,7 +175,7 @@ module.exports = (actions, config) => {
 
             let destination = {host: params.host, exportPath: params.export_path, uid: params.uid, gid: params.gid};
             let destination_key = JSON.stringify(destination);
-            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new NFS(destination);
+            if (!workers.hasOwnProperty(destination_key)) workers[destination_key] = new NFS(destination, config.logger);
 
             return workers[destination_key].transfer_file(source, target, params.publish, params.direct);
         };

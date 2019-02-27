@@ -1,7 +1,6 @@
 let fs = require('fs-extra');
 let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 let mime = require('mime-types');
 
 module.exports = (actions, config) => {
@@ -34,7 +33,7 @@ module.exports = (actions, config) => {
                         else resolve();
                     });
                 })
-                .catch(err => winston.error("Error creating AWS S3 bucket: ", err))
+                .catch(err => config.logger.error("Error creating AWS S3 bucket: ", err))
                 .then(() => new Promise((resolve, reject) => {
                     fs.stat(source, (err, stats) => {
                         if (err) reject({not_found: true});
@@ -75,7 +74,7 @@ module.exports = (actions, config) => {
                     });
                 }))
                 .catch(err => {
-                    if (err && err.file_exists) return winston.info(source + " already exists on AWS bucket " + params.bucket);
+                    if (err && err.file_exists) return config.logger.info(source + " already exists on AWS bucket " + params.bucket);
                     throw err;
                 })
                 .then(() => new Promise((resolve, reject) => {

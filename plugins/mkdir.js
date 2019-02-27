@@ -7,7 +7,8 @@ module.exports = actions => {
         actions.mkdir = (file, params) => {
             if (!params || !params.hasOwnProperty('target')) throw "Target path not specified";
             let target = sprintf(params.target, file);
-            return fs.ensureDir(path.dirname(target));
+            if (params.target_is_filename) return fs.ensureDir(path.dirname(target));
+            return fs.ensureDir(target);
         };
     }
     return actions;

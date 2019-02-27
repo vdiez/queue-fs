@@ -1,6 +1,4 @@
-let winston = require('winston');
-
-module.exports = function Parser(type, publish, data) {
+module.exports = function Parser(logger, type, publish, data) {
     try {
         let module = require('./' + type);
         let parser = Object.create(module);
@@ -9,6 +7,6 @@ module.exports = function Parser(type, publish, data) {
         return parser;
     }
     catch (e) {
-        winston.error("Error loading stream parser of type " + type, e);
+        logger.error("Error loading stream parser of type " + type, e);
     }
 };

@@ -1,7 +1,6 @@
 let request = require('request');
-let winston = require('winston');
 
-module.exports = actions => {
+module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('rest_call')) {
         actions.rest_call = (file, params) => {
             if (!params || !params.request) throw "Missing parameters";
@@ -9,14 +8,14 @@ module.exports = actions => {
             return new Promise((resolve, reject) => {
                 request(params.request, (err, response, body) => {
                     if (err) {
-                        winston.error("REST API Error:", err);
+                        config.logger.error("REST API Error:", err);
                         reject(err);
                     }
                     else {
-                        winston.debug("REST API Result: ", body);
+                        config.logger.debug("REST API Result: ", body);
                         if (params.succeed_status) {
                             if (![].concat(params.succeed_status).includes(response.statusCode)) {
-                                winston.error("REST API statusCode " + response.statusCode + " not included in list of accepted status");
+                                config.logger.error("REST API statusCode " + response.statusCode + " not included in list of accepted status");
                                 reject(response.statusCode);
                             }
                             else resolve(body);

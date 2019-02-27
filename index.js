@@ -1,11 +1,16 @@
 let queues = {};
 let functions = {};
 let sprintf = require('sprintf-js').sprintf;
-let winston = require('winston');
 let wamp = require('simple_wamp');
 
 module.exports = config => {
     config = config || {};
+    if (!config.logger) config.logger = {};
+    if (typeof config.logger.info !== "function") config.logger.info = () => {};
+    if (typeof config.logger.warn !== "function") config.logger.warn = () => {};
+    if (typeof config.logger.error !== "function") config.logger.error = () => {};
+    if (typeof config.logger.debug !== "function") config.logger.debug = () => {};
+    if (typeof config.logger.verbose !== "function") config.logger.verbose = () => {};
 
     let display = action => action.id || action.action.name || action.action;
 
@@ -18,7 +23,7 @@ module.exports = config => {
                 require('./plugins/' + action)(functions, config);
                 if (functions.hasOwnProperty(action)) return functions[action];
             }
-            catch(e) {winston.error("Error loading plugin " + action + ":", e)}
+            catch(e) {config.logger.error("Error loading plugin " + action + ":", e)}
         }
     };
 
@@ -40,7 +45,7 @@ module.exports = config => {
                 }
 
                 let publish = () => {};
-                winston.info("Action " + display(actions[i]) + " enqueued on file " + file.path);
+                config.logger.info("Action " + display(actions[i]) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(results => {
                         if (failed_queues.filter(queue => dependencies.includes(queue)).length) throw {critical_failed: true};
@@ -50,11 +55,11 @@ module.exports = config => {
                         return new Promise((resolve_execution, reject_execution) => {
                             let execute = (() => {
                                 let timeout;
-                                winston.info("Action " + display(actions[i]) + " starting on file " + file.path);
+                                config.logger.info("Action " + display(actions[i]) + " starting on file " + file.path);
 
                                 if (actions[i].timer && actions[i].timer.timeout) {
                                     timeout = setTimeout(() => {
-                                        winston.info("Timeout for " + display(actions[i]) + " on file " + file.path);
+                                        config.logger.info("Timeout for " + display(actions[i]) + " on file " + file.path);
                                         if (actions[i].timer.action) {
                                             let effect = load_function(actions[i].timer.action);
                                             if (effect) effect(file, actions[i].timer.params);
@@ -74,17 +79,22 @@ module.exports = config => {
                                         return Promise.resolve(typeof actions[i].params === "function" ? actions[i].params(file) : actions[i].params);
                                     })
                                     .then(params => {
-                                        if (params && params.job_id && params.progress) {
+                                        params = params || {};
+                                        if (actions[i].job_id && params.progress) {
+                                            params.job_id = actions[i].job_id;
                                             let wamp_router = params.wamp_router || config.default_router;
-                                            let wamp_realm = params.wamp_realm || config.default_realm;
-                                            if (wamp_router && wamp_realm) {
+                                            if (wamp_router) {
+                                                let publish_wamp = wamp({router: wamp_router, logger: config.logger});
                                                 publish = content => {
                                                     content.current_step = i + 1;
                                                     content.total_steps = actions.length;
-                                                    wamp(wamp_router, wamp_realm, 'publish', [params.topic || 'task_progress', [params.job_id, content]]);
+                                                    publish_wamp.run('publish', [params.topic || 'task_progress', [actions[i].job_id, content]]);
                                                 };
                                                 params.publish = publish;
                                             }
+                                        }
+                                        for (let field in actions[i].patch) {
+                                            if (actions[i].patch.hasOwnProperty(field) && params.hasOwnProperty(field)) params[field] = sprintf(params[field], actions[i].patch[field]);
                                         }
                                         return method(file, params);
                                     })
@@ -99,7 +109,7 @@ module.exports = config => {
                                                 else {
                                                     resolve_execution(result);
                                                     resolve();
-                                                    winston.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
+                                                    config.logger.info("Action " + display(actions[i]) + " correctly completed on file " + file.path);
                                                     return result;
                                                 }
                                             });
@@ -114,17 +124,17 @@ module.exports = config => {
                     })
                     .catch(reason => {
                         if (reason && reason.does_not_apply) {
-                            winston.info("Skipped: " + file.path + " does not fulfil requirements of action " + display(actions[i]));
+                            config.logger.info("Skipped: " + file.path + " does not fulfil requirements of action " + display(actions[i]));
                             resolve({error: reason, path: file.path});
                         }
                         else if (actions[i].critical || (reason && reason.critical_failed)) {
-                            if (actions[i].critical) winston.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
-                            else winston.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: ", reason);
+                            if (actions[i].critical) config.logger.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
+                            else config.logger.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: ", reason);
                             failed_queues.push(queue);
                             reject(reason.toString());
                         }
                         else {
-                            winston.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
+                            config.logger.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
                             resolve({error: reason, path: file.path});
                         }
                         return reason;
