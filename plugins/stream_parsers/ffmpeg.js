@@ -1,5 +1,5 @@
 module.exports = {
-    parse(data) {
+    parse(data, stderr) {
         if (data instanceof Buffer) {
             data = data.toString('utf8');
             if (stderr) this.data.stderr += data;
