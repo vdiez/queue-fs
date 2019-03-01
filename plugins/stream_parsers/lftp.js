@@ -2,7 +2,6 @@ module.exports = {
     parse(data, stderr) {
         if (data instanceof Buffer) {
             data = data.toString('utf8');
-            console.log(this.data)
             if (stderr) this.data.stderr += data;
             else this.data.stderr += data;
         }
