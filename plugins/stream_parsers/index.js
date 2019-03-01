@@ -4,6 +4,8 @@ module.exports = function Parser(logger, type, publish, data) {
         let parser = Object.create(module);
         parser.publish = publish;
         parser.data = data || {};
+        parser.data.stdout = "";
+        parser.data.stderr = "";
         return parser;
     }
     catch (e) {

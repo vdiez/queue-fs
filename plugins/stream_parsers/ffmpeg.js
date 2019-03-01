@@ -1,6 +1,10 @@
 module.exports = {
     parse(data) {
-        if (data instanceof Buffer) data = data.toString('utf8');
+        if (data instanceof Buffer) {
+            data = data.toString('utf8');
+            if (stderr) this.data.stderr += data;
+            else this.data.stderr += data;
+        }
         let match_progress = data.match(/\W*time=\s*(\d+):(\d+):(\d+)\.\d+/);
         if (match_progress && this.data.total) {
             this.data.current = Number(match_progress[3]) + Number(match_progress[2]) * 60 + Number(match_progress[1]) * 3600;

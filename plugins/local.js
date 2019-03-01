@@ -32,13 +32,13 @@ module.exports = (actions, config) => {
             return new Promise((resolve, reject) => {
                 config.logger.debug("Executing " + cmd);
                 let child = exec(cmd, params.options, (err, stdout, stderr) => {
-                    if (err) reject(err);
+                    if (err) reject({error: err, data: parser && parser.data});
                     else resolve(parser && parser.data);
                 });
 
                 if (parser) {
                     child.stderr.on('data', data => parser.parse(data));
-                    child.stdout.on('data', data => parser.parse(data));
+                    child.stdout.on('data', data => parser.parse(data, 1));
                 }
             });
         };

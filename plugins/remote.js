@@ -98,7 +98,7 @@ module.exports = (actions, config) => {
                                                         if (parser) parser.parse(data);
                                                     }).stderr.on('data', data => {
                                                         config.logger.debug("SSH module: Stderr output of '" + cmd + "' on " + params.host + ": " + data);
-                                                        if (parser) parser.parse(data);
+                                                        if (parser) parser.parse(data, 1);
                                                     });
                                                 }
                                             })
@@ -110,10 +110,10 @@ module.exports = (actions, config) => {
                                         })))
                                         .catch(err => {
                                             config.logger.error("SSH error: ", err);
-                                            reject(err);
+                                            reject({error: err, data: parser && parser.data});
                                         })
                                         .then(() => {
-                                            resolve();
+                                            resolve(parser && parser.data);
                                             pending[id]--;
                                             return queue;
                                         });
