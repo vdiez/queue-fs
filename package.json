@@ -1,6 +1,6 @@
 {
   "name": "queue-fs",
-  "version": "1.6.5",
+  "version": "2.0.0",
   "description": "A promise-based queuing system to deal with file operations",
   "main": "index.js",
   "optionalDependencies": {
