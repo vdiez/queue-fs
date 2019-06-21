@@ -1,10 +1,5 @@
 module.exports = {
-    parse(data, stderr) {
-        if (data instanceof Buffer) {
-            data = data.toString('utf8');
-            if (stderr) this.data.stderr += data;
-            else this.data.stderr += data;
-        }
+    parser(data) {
         let match_progress = data.match(/(\d+) \((\d+)%\)/);
         if (match_progress) {
             this.data.current = Number(match_progress[1]);

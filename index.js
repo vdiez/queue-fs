@@ -12,7 +12,7 @@ module.exports = config => {
     if (typeof config.logger.debug !== "function") config.logger.debug = () => {};
     if (typeof config.logger.verbose !== "function") config.logger.verbose = () => {};
 
-    let display = action => action.id || action.action.name || action.action;
+    let display = action => action.id || (action.action && action.action.name) || action.action;
 
     let load_function = action => {
         if (typeof action === "undefined") return;
@@ -28,7 +28,14 @@ module.exports = config => {
     };
 
     return (file, actions) => {
+        if (!file) file = {};
         file.results = {};
+        if (!file.path) {
+            file.path = "";
+            if (file.dirname) file.path += file.dirname;
+            if (file.filename) file.path += file.filename;
+            if (!file.path) file.path = "NO_FILE";
+        }
         actions = [].concat(actions);
         let promises = [], failed_queues = [];
         for (let i = 0; i < actions.length; i++) {
@@ -45,6 +52,7 @@ module.exports = config => {
                 }
 
                 let publish = () => {};
+                let control_registration;
                 config.logger.info("Action " + display(actions[i]) + " enqueued on file " + file.path);
                 queues[queue] = Promise.all(awaits)
                     .then(results => {
@@ -69,7 +77,10 @@ module.exports = config => {
                                 }
 
                                 let requisite = true;
-                                if (actions[i].requisite && typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
+                                if (actions[i].hasOwnProperty('requisite')) {
+                                    if(typeof actions[i].requisite === "function") requisite = actions[i].requisite(file);
+                                    else requisite = actions[i].requisite;
+                                }
                                 Promise.resolve(requisite)
                                     .catch(() => {
                                         throw {does_not_apply: true};
@@ -80,15 +91,15 @@ module.exports = config => {
                                     })
                                     .then(params => {
                                         params = params || {};
-                                        if (actions[i].job_id && params.progress) {
+                                        if (actions[i].job_id) {
                                             params.job_id = actions[i].job_id;
                                             let wamp_router = params.wamp_router || config.default_router;
-                                            if (wamp_router) {
-                                                let publish_wamp = wamp({router: wamp_router, logger: config.logger});
+                                            if (wamp_router && params.progress) {
+                                                let router = wamp({router: wamp_router, logger: config.logger});
                                                 publish = content => {
                                                     content.current_step = i + 1;
                                                     content.total_steps = actions.length;
-                                                    publish_wamp.run('publish', [params.topic || 'task_progress', [actions[i].job_id, content]]);
+                                                    router.run('publish', [params.progress_topic || 'task_progress', [actions[i].job_id, content]]);
                                                 };
                                                 params.publish = publish;
                                             }
@@ -131,7 +142,8 @@ module.exports = config => {
                             if (actions[i].critical) config.logger.error("Critical action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);
                             else config.logger.error("Action " + display(actions[i]) + " failed due to previous critical failure on file " + file.path + ". Error: ", reason);
                             failed_queues.push(queue);
-                            reject(reason.toString());
+                            //reject(typeof reason === 'object' ? require('util').inspect(reason, {showHidden: false, depth: null}) : reason);
+                            reject(reason);
                         }
                         else {
                             config.logger.error("Action " + display(actions[i]) + " failed on file " + file.path + ". Error: ", reason);

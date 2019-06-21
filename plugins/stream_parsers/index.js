@@ -4,8 +4,10 @@ module.exports = function Parser(logger, type, publish, data) {
         let parser = Object.create(module);
         parser.publish = publish;
         parser.data = data || {};
-        parser.data.stdout = "";
-        parser.data.stderr = "";
+        parser.parse = data => {
+            if (data instanceof Buffer) data = data.toString('utf8');
+            parser.parser(data);
+        };
         return parser;
     }
     catch (e) {

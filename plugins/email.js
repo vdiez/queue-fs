@@ -1,14 +1,19 @@
 let nodemailer = require('nodemailer');
+let smtp_server;
 
-module.exports = (actions, config) => {
+module.exports = actions => {
     if (!actions.hasOwnProperty('email')) {
         actions.email = (file, params) => {
-            let transporter = nodemailer.createTransport(params.smtp_server || config.default_smtp_server);
+            if (!smtp_server && !params.smtp_server) throw "Missing SMTP server parameters";
+            if (params.smtp_server) smtp_server = params.smtp_server;
+
+            let transporter = nodemailer.createTransport(smtp_server);
             let mailOptions = {
-                from: params.from || config.default_from,
+                from: params.from,
                 to: params.recipient,
                 subject: params.subject,
-                text: params.body
+                text: params.body,
+                attachments: params.attachments
             };
 
             if (params.bcc) mailOptions.bcc = params.bcc;

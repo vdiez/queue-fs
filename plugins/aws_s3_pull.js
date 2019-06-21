@@ -3,15 +3,14 @@ let path = require('path');
 let sprintf = require('sprintf-js').sprintf;
 
 module.exports = (actions, config) => {
-    if (!actions.hasOwnProperty('aws_s3_download')) {
-        actions.aws_s3_download = (file, params) => {
+    if (!actions.hasOwnProperty('aws_s3_pull')) {
+        actions.aws_s3_pull = (file, params) => {
             if (!params) throw "Missing parameters";
             if (!params.bucket) throw "Bucket not specified";
 
             let aws = require('aws-sdk');
             if (params.credentials) aws.config.loadFromPath(params.credentials);
             else if (params.access_key && params.secret) aws.config.update({accessKeyId: params.access_key, secretAccessKey: params.secret});
-            else if (config.default_aws_credentials) aws.config.loadFromPath(config.default_aws_credentials);
             else throw "Credentials path not specified";
 
             if (params.region) aws.config.update({region: params.region});
@@ -26,6 +25,33 @@ module.exports = (actions, config) => {
             let source = params.source || './';
             source = sprintf(source, file);
             if (!params.source_is_filename) source = path.posix.join(source, file.filename);
+
+            let resolve_pause, reject_pause, readStream, writeStream;
+            let passThrough = new (require('stream')).PassThrough();//we use PassThrough because once we pipe filestream, pause will not have any effect
+            if (params.job_id && params.controllable && config.controllers) {
+                if (!config.controllers.hasOwnProperty(params.job_id)) config.controllers[params.job_id] = {value: "resume"};
+                config.controllers[params.job_id].control = action => {
+                    let state = config.controllers[params.job_id].value;
+                    config.controllers[params.job_id].value = action;
+                    config.logger.info("Received command: ", action);
+                    if (action === "stop") {
+                        if (readStream) readStream.destroy("Task has been cancelled");
+                        if (reject_pause) {
+                            reject_pause("CANCELLED");
+                            reject_pause = null;
+                        }
+                    }
+                    else if (action === "pause" && readStream) passThrough.unpipe();
+                    else if (state !== "resume" && action === "resume") {
+                        if (readStream) passThrough.pipe(writeStream);
+                        if (resolve_pause) {
+                            resolve_pause();
+                            resolve_pause = null;
+                        }
+                    }
+                };
+            }
+
             return new Promise((resolve, reject) => {
                     S3.headObject({Bucket: params.bucket, Key: source}, (err, data) => {
                         if (err) reject({not_found: true});
@@ -62,7 +88,8 @@ module.exports = (actions, config) => {
                     });
                     fileStream.on('close', () => resolve());
                     fileStream.on('error', err => reject(err));
-                    result.createReadStream().pipe(fileStream);
+                    result.createReadStream().pipe(passThrough);
+                    passThrough.pipe(fileStream);
                 }))
                 .catch(err => {
                     if (err && err.file_exists) return config.logger.info(target + " already exists");
