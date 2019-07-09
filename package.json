@@ -8,9 +8,9 @@
   },
   "dependencies": {
     "@marsaud/smb2": "^0.14.0",
-    "aws-sdk": "^2.479.0",
-    "execa": "^1.0.0",
-    "fs-extra": "^8.0.1",
+    "aws-sdk": "^2.489.0",
+    "execa": "^2.0.3",
+    "fs-extra": "^8.1.0",
     "ftp": "^0.3.10",
     "got": "^9.6.0",
     "mime-types": "^2.1.24",
@@ -18,7 +18,7 @@
     "nodemailer": "^6.2.1",
     "shlex": "^2.0.1",
     "signal-exit": "^3.0.2",
-    "simple_wamp": "^2.0.3",
+    "simple_wamp": "2.0.3",
     "sprintf-js": "github:vdiez/sprintf.js",
     "ssh2": "^0.8.4"
   },
