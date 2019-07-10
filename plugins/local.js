@@ -115,7 +115,7 @@ module.exports = (actions, config) => {
                     })
                     .then(() => params.logs && params.logs.stdout && new Promise(resolve => stdout_log.end(resolve)))
                     .then(() => params.logs && params.logs.stderr && new Promise(resolve => stderr_log.end(resolve)))
-                    .then(() => params.logs && params.logs.stderr && new Promise(resolve => stdall_log.end(resolve)))
+                    .then(() => params.logs && params.logs.stdall && new Promise(resolve => stdall_log.end(resolve)))
                     .then(() => params.logs && setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000));
             });
         };
