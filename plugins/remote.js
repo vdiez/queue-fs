@@ -181,11 +181,11 @@ module.exports = (actions, config) => {
                                                                                 let match_pid = data.toString('utf8').match(/PROCESS_PID=(\d+)/);
                                                                                 if (match_pid) process_pid = match_pid[1];
                                                                                 else if (parser) parser.parse(data);
-                                                                                if (params.logs && params.logs.stdout) stdout_log.write(data);
+                                                                                if (stdout_log) stdout_log.write(data);
                                                                             }).stderr.on('data', data => {
                                                                                 config.logger.debug("SSH module: Stderr output of '" + params.cmd + "' on " + params.host + ": " + data);
                                                                                 if (parser) parser.parse(data);
-                                                                                if (params.logs && params.logs.stderr) stderr_log.write(data);
+                                                                                if (stderr_log) stderr_log.write(data);
                                                                             });
                                                                         }
                                                                     })
@@ -207,11 +207,11 @@ module.exports = (actions, config) => {
                                         .catch(err => {
                                             reject(err);
                                         })
-                                        .then(() => params.logs && params.logs.stdout && new Promise(resolve => stdout_log.end(resolve)))
-                                        .then(() => params.logs && params.logs.stderr && new Promise(resolve => stderr_log.end(resolve)))
+                                        .then(() => stdout_log && new Promise(resolve => stdout_log.end(resolve)))
+                                        .then(() => stderr_log && new Promise(resolve => stderr_log.end(resolve)))
                                         .then(() => {
                                             resolve(parser && parser.data);
-                                            if (params.logs) setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000);
+                                            if (logs.length) setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000);
                                             pending[id]--;
                                             if (queue >= parallel_connections && current_server) current_server.end();
                                             else servers[id][queue] = current_server;

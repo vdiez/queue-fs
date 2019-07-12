@@ -85,15 +85,15 @@ module.exports = (actions, config) => {
                                     let command_line = shlex(cmd);
                                     child = spawn(command_line.shift(), command_line, {buffer: false, ...(params.options || {})});
                                     child.all.on('data', data => {
-                                        if (params.logs && params.logs.stdall) stdall_log.write(data);
+                                        if (stdall_log) stdall_log.write(data);
                                     });
                                     child.stderr.on('data', data => {
                                         if (parser) parser.parse(data);
-                                        if (params.logs && params.logs.stderr) stderr_log.write(data);
+                                        if (stderr_log) stderr_log.write(data);
                                     });
                                     child.stdout.on('data', data => {
                                         if (parser) parser.parse(data);
-                                        if (params.logs && params.logs.stdout) stdout_log.write(data);
+                                        if (stdout_log) stdout_log.write(data);
                                     });
                                     if (params.priority) {
                                         let renice = spawn('renice', [params.priority, '-p', child.pid], {buffer: false});
@@ -113,10 +113,10 @@ module.exports = (actions, config) => {
                     .then(result => {
                         resolve(parser && parser.data);
                     })
-                    .then(() => params.logs && params.logs.stdout && new Promise(resolve => stdout_log.end(resolve)))
-                    .then(() => params.logs && params.logs.stderr && new Promise(resolve => stderr_log.end(resolve)))
-                    .then(() => params.logs && params.logs.stdall && new Promise(resolve => stdall_log.end(resolve)))
-                    .then(() => params.logs && setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000));
+                    .then(() => stdout_log && new Promise(resolve => stdout_log.end(resolve)))
+                    .then(() => stderr_log && new Promise(resolve => stderr_log.end(resolve)))
+                    .then(() => stdall_log && new Promise(resolve => stdall_log.end(resolve)))
+                    .then(() => logs.length && setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000));
             });
         };
     }
