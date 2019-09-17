@@ -7,6 +7,7 @@ module.exports = (actions, config) => {
             if (!params.request.timeout) params.request.timeout = 10000;
             if (!params.request.retry) params.request.retry = 0;
             return new Promise((resolve, reject) => {
+                config.logger.debug("REST API request: ", params.request);
                 request(params.request)
                     .then(response => {
                         config.logger.debug("REST API Result: ", response.statusCode, response.body);

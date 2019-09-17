@@ -86,101 +86,116 @@ module.exports = (actions, config) => {
                         return new Promise(resolve_arbiter => {
                             return Promise.race(queues[id])
                                 .then(queue => {
-                                    let current_server = servers[id][queue];
                                     queues[id][queue] = Promise.resolve(queues[id][queue])
                                         .then(() => {
                                             return new Promise((resolve_session, reject_session) => {
                                                 return new Promise((resolve_connection, reject_connection) => {
-                                                    if (current_server) resolve_connection();
+                                                    if (servers[id][queue]) resolve_connection();
                                                     else {
                                                         let client = new Client();
                                                         client
                                                             .on('ready', () => {
-                                                                current_server = {connection: client};
+                                                                servers[id][queue] = {connection: client};
                                                                 client.sftp((err, sftp) => {
                                                                     if (err) reject_connection(err);
                                                                     else {
-                                                                        current_server.sftp = sftp;
+                                                                        servers[id][queue].sftp = sftp;
                                                                         resolve_connection();
                                                                     }
                                                                 });
                                                             })
                                                             .on('error', err => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                config.logger.error("SCP connection to host " + params.host + " failed with error: ", err);
-                                                                reject_connection("SCP connection error: " + err);
-                                                                reject_session("SCP connection error: " + err);
+                                                                config.logger.error("SCP connection to host " + params.host + " (Queue: " + queue + ")  failed with error: ", err);
+                                                                reject_connection("SCP connection error: " + " (Queue: " + queue + ") error: " + err);
+                                                                reject_session("SCP connection error: " + " (Queue: " + queue + ") error: " + err);
                                                             })
                                                             .on('end', () => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                reject_connection("SCP connection ended to host " + params.host);
-                                                                reject_session("SCP connection ended to host " + params.host);
+                                                                reject_connection("SCP connection ended to host " + params.host + " (Queue: " + queue + ")");
+                                                                reject_session("SCP connection ended to host " + params.host + " (Queue: " + queue + ")");
                                                             })
                                                             .on('close', had_error => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                reject_connection("SCP connection lost to host " + params.host + ". Due to error: " + had_error);
-                                                                reject_session("SCP connection lost to host " + params.host + ". Due to error: " + had_error);
+                                                                reject_connection("SCP connection lost to host " + params.host + " (Queue: " + queue + "). Due to error: " + had_error);
+                                                                reject_session("SCP connection lost to host " + params.host + " (Queue: " + queue + "). Due to error: " + had_error);
                                                             })
                                                             .connect(parameters);
                                                     }
                                                 })
-                                                    .then(() => {
-                                                        if (params.job_id && params.controllable && config.controllers) {
-                                                            if (config.controllers[params.job_id].value === "stop") throw "Task has been cancelled";
-                                                            if (config.controllers[params.job_id].value === "pause") {
-                                                                config.logger.info("SCP put paused");
-                                                                return new Promise((resolve, reject) => {
-                                                                    resolve_pause = resolve;
-                                                                    reject_pause = reject;
-                                                                });
-                                                            }
+                                                .then(() => {
+                                                    if (params.job_id && params.controllable && config.controllers) {
+                                                        if (config.controllers[params.job_id].value === "stop") throw "Task has been cancelled";
+                                                        if (config.controllers[params.job_id].value === "pause") {
+                                                            config.logger.info("SCP put paused");
+                                                            return new Promise((resolve, reject) => {
+                                                                resolve_pause = resolve;
+                                                                reject_pause = reject;
+                                                            });
                                                         }
-                                                    })
-                                                    .then(() => fs.stat(source))
-                                                    .then(result => {
-                                                        stats = result;
-                                                        if (stats.isDirectory()) throw "Cannot copy directory";
-                                                        return new Promise((resolve_target, reject_target) => {
-                                                            current_server.sftp.stat(target, (err, stats_target) => {
+                                                    }
+                                                })
+                                                .then(() => fs.stat(source))
+                                                .then(result => {
+                                                    stats = result;
+                                                    if (stats.isDirectory()) throw "Cannot copy directory";
+                                                    return new Promise((resolve_target, reject_target) => {
+                                                        if (servers[id][queue]) {
+                                                            servers[id][queue].sftp.stat(target, (err, stats_target) => {
                                                                 if (!err && (stats_target.size === stats.size)) reject_target({file_exists: true}) ;
                                                                 else resolve_target();
                                                             })
-                                                        })
+                                                        }
+                                                        else reject_target("Not connected");
                                                     })
-                                                    .then(() => {
-                                                        let create_path = dir => {
-                                                            if (!dir || dir === "/" || dir === ".") return;
-                                                            return new Promise((resolve, reject) => current_server.sftp.stat(dir, err => {
-                                                                if (err) resolve();
-                                                                else reject({exists: true});
-                                                            }))
-                                                            .then(() => new Promise((resolve, reject) => current_server.sftp.mkdir(dir, err => {
-                                                                if (!err) resolve();
-                                                                else if (err && err.code === 2) reject({missing_parent: true});
-                                                                else reject(err);
-                                                            })))
-                                                            .catch(err => {
-                                                                if (err && err.missing_parent) return create_path(path.posix.dirname(dir)).then(() => create_path(dir));
-                                                                else if (!err || !err.exists) throw err;
-                                                            });
-                                                        };
+                                                })
+                                                .then(() => {
+                                                    let create_path = dir => {
+                                                        if (!dir || dir === "/" || dir === ".") return;
+                                                        return new Promise((resolve_stat, reject_stat) => {
+                                                            if (servers[id][queue]) {
+                                                                servers[id][queue].sftp.stat(dir, err => {
+                                                                    if (err) resolve_stat();
+                                                                    else reject_stat({exists: true});
+                                                                })
+                                                            }
+                                                            else reject_stat("Not connected");
+                                                        })
+                                                        .then(() => {
+                                                            return new Promise((resolve_mkdir, reject_mkdir) => {
+                                                                if (servers[id][queue]) {
+                                                                    servers[id][queue].sftp.mkdir(dir, err => {
+                                                                        if (!err) resolve_mkdir();
+                                                                        else if (err && err.code === 2) reject_mkdir({missing_parent: true});
+                                                                        else reject_mkdir(err);
+                                                                    })
+                                                                }
+                                                                else reject_mkdir("Not connected");
+                                                            })
+                                                        })
+                                                        .catch(err => {
+                                                            if (err && err.missing_parent) return create_path(path.posix.dirname(dir)).then(() => create_path(dir));
+                                                            else if (!err || !err.exists) throw err;
+                                                        });
+                                                    };
 
-                                                        if (params.direct) return create_path(path.posix.dirname(target));
-                                                        final = target;
-                                                        target = path.posix.join(path.posix.dirname(target), ".tmp", path.posix.basename(target));
-                                                        return new Promise((resolve_target, reject_target) => {
-                                                            current_server.sftp.stat(target, (err, stats_target) => {
+                                                    if (params.direct) return create_path(path.posix.dirname(target));
+                                                    final = target;
+                                                    target = path.posix.join(path.posix.dirname(target), ".tmp", path.posix.basename(target));
+                                                    return new Promise((resolve_target, reject_target) => {
+                                                        if (servers[id][queue]) {
+                                                            servers[id][queue].sftp.stat(target, (err, stats_target) => {
                                                                 if (!err && (stats_target.size === stats.size)) reject_target({tmp_exists: true}) ;
                                                                 else resolve_target();
                                                             })
-                                                        })
-                                                        .then(() => create_path(path.posix.dirname(target)));
+                                                        }
+                                                        else reject_target("Not connected");
                                                     })
-                                                    .then(() => new Promise((resolve_transfer, reject_transfer) => {
-                                                        writeStream = current_server.sftp.createWriteStream(target);
+                                                    .then(() => create_path(path.posix.dirname(target)));
+                                                })
+                                                .then(() => new Promise((resolve_transfer, reject_transfer) => {
+                                                    if (servers[id][queue]) {
+                                                        writeStream = servers[id][queue].sftp.createWriteStream(target);
                                                         readStream = fs.createReadStream(source);
                                                         readStream.pipe(passThrough);
 
@@ -191,10 +206,13 @@ module.exports = (actions, config) => {
                                                             if (stopped) reject_transfer("Task has been cancelled");
                                                             else {
                                                                 if (params.direct) resolve_transfer();
-                                                                else current_server.sftp.rename(target, final, err => {
-                                                                    if (err) reject_transfer(err);
-                                                                    else resolve_transfer();
-                                                                });
+                                                                else if (servers[id][queue]) {
+                                                                    servers[id][queue].sftp.rename(target, final, err => {
+                                                                        if (err) reject_transfer(err);
+                                                                        else resolve_transfer();
+                                                                    });
+                                                                }
+                                                                else reject_transfer("Not connected");
                                                             }
                                                         });
                                                         passThrough.pipe(writeStream);
@@ -212,37 +230,37 @@ module.exports = (actions, config) => {
                                                                 }
                                                             });
                                                         }
-                                                    }))
-                                                    .then(() => resolve_session())
-                                                    .catch(err => {
-                                                        if (readStream) readStream.destroy();
-                                                        if (passThrough) passThrough.destroy();
-                                                        if (err && err.file_exists) {
-                                                            resolve_session();
-                                                            config.logger.info(target + " already exists");
-                                                        }
-                                                        else if (err && err.tmp_exists && !params.direct) {
+                                                    }
+                                                    else reject_transfer("Not connected");
+                                                }))
+                                                .then(() => resolve_session())
+                                                .catch(err => {
+                                                    if (readStream) readStream.destroy();
+                                                    if (passThrough) passThrough.destroy();
+                                                    if (err && err.file_exists) {
+                                                        resolve_session();
+                                                        config.logger.info(target + " already exists");
+                                                    }
+                                                    else if (err && err.tmp_exists && !params.direct) {
+                                                        if (servers[id][queue]) {
                                                             config.logger.info(target + " already exists. Moving to final destination");
-                                                            return new Promise(resolve => {
-                                                                current_server.sftp.rename(target, final, err => {
-                                                                    if (err) reject_session(err);
-                                                                    else resolve_session();
-                                                                    resolve();
-                                                                });
+                                                            servers[id][queue].sftp.rename(target, final, err => {
+                                                                if (err) reject_session(err);
+                                                                else resolve_session();
                                                             });
                                                         }
-                                                        else {
-                                                            if (reject_pause) reject_pause(err);
-                                                            if (current_server) return new Promise(resolve => {
-                                                                current_server.sftp.unlink(target, error => {
-                                                                    if (error) config.logger.error("Could not remove unfinished destination: ", error);
-                                                                    reject_session(err);
-                                                                    resolve();
-                                                                });
+                                                        else reject_session("Not connected");
+                                                    }
+                                                    else {
+                                                        if (reject_pause) reject_pause(err);
+                                                        if (servers[id][queue]) {
+                                                            servers[id][queue].sftp.unlink(target, error => {
+                                                                if (error) config.logger.error("Could not remove unfinished destination: ", error);
                                                             });
-                                                            else reject_session(err);
                                                         }
-                                                    })
+                                                        reject_session(err);
+                                                    }
+                                                })
                                             })
                                         })
                                         .catch(err => {
@@ -251,8 +269,7 @@ module.exports = (actions, config) => {
                                         .then(() => {
                                             resolve();
                                             pending[id]--;
-                                            if (queue >= parallel_connections && current_server) current_server.connection.end();
-                                            else servers[id][queue] = current_server;
+                                            if (queue >= parallel_connections && servers[id][queue]) servers[id][queue].connection.end();
                                             return queue;
                                         });
                                     resolve_arbiter();

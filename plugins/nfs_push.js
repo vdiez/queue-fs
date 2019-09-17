@@ -85,8 +85,7 @@ module.exports = (actions, config) => {
                         return new Promise(resolve_arbiter => {
                             return Promise.race(queues[id])
                                 .then(queue => {
-                                    let current_server = servers[id][queue];
-                                    if (!current_server) current_server = new Client.V3(parameters);
+                                    if (!servers[id][queue]) servers[id][queue] = new Client.V3(parameters);
                                     queues[id][queue] = Promise.resolve(queues[id][queue])
                                         .then(() => {
                                             if (params.job_id && params.controllable && config.controllers) {
@@ -105,7 +104,7 @@ module.exports = (actions, config) => {
                                             stats = result;
                                             if (stats.isDirectory()) throw "Cannot copy directory";
                                             return new Promise((resolve_mount, reject_mount) => {
-                                                current_server.mount((err, root) => {
+                                                servers[id][queue].mount((err, root) => {
                                                     if (err) reject_mount(err);
                                                     else resolve_mount(root);
                                                 });
@@ -119,9 +118,9 @@ module.exports = (actions, config) => {
                                             return path.posix.dirname(target).split('/').reduce((p, entry, i, paths) => p.then(parent => new Promise((resolve_mkdir, reject_mkdir) => {
                                                 if (!params.direct && i === paths.length - 1) final_handler = parent;
                                                 if (!entry || entry === "/" || entry === ".") return resolve_mkdir(parent);
-                                                current_server.lookup(parent, entry, (err, entry_obj, entry_attrs, parent_attr) => {
+                                                servers[id][queue].lookup(parent, entry, (err, entry_obj, entry_attrs, parent_attr) => {
                                                     if (err) {
-                                                        if (err.status === 'NFS3ERR_NOENT') current_server.mkdir(parent, entry, {mode: 0o775}, (err, new_entry, attrs, wcc) => {
+                                                        if (err.status === 'NFS3ERR_NOENT') servers[id][queue].mkdir(parent, entry, {mode: 0o775}, (err, new_entry, attrs, wcc) => {
                                                             if (!err && new_entry) resolve_mkdir(new_entry);
                                                             else reject_mkdir(err);
                                                         });
@@ -135,11 +134,11 @@ module.exports = (actions, config) => {
                                         })
                                         .then(handler => {
                                             target_handler = handler;
-                                            return new Promise((resolve_size, reject_size) => current_server.lookup(target_handler, filename, (err, entry, attrs) =>  {
+                                            return new Promise((resolve_size, reject_size) => servers[id][queue].lookup(target_handler, filename, (err, entry, attrs) =>  {
                                                 if (err) resolve_size();
                                                 else {
                                                     if (attrs.size === stats.size) reject_size(params.direct ? {file_exists: true} : {tmp_exists: true});
-                                                    else current_server.remove(target_handler, filename, err => {
+                                                    else servers[id][queue].remove(target_handler, filename, err => {
                                                         if (err) reject_size(err);
                                                         else resolve_size();
                                                     });
@@ -148,11 +147,11 @@ module.exports = (actions, config) => {
                                         })
                                         .then(() => {
                                             if (params.direct) return;
-                                            return new Promise((resolve_size, reject_size) => current_server.lookup(final_handler, filename, (err, entry, attrs) =>  {
+                                            return new Promise((resolve_size, reject_size) => servers[id][queue].lookup(final_handler, filename, (err, entry, attrs) =>  {
                                                 if (err) resolve_size();
                                                 else {
                                                     if (attrs.size === stats.size) reject_size({file_exists: true});
-                                                    else current_server.remove(final_handler, filename, err => {
+                                                    else servers[id][queue].remove(final_handler, filename, err => {
                                                         if (err) reject_size(err);
                                                         else resolve_size();
                                                     });
@@ -160,14 +159,14 @@ module.exports = (actions, config) => {
                                             }))
                                         })
                                         .then(() => new Promise((resolve_transfer, reject_transfer) => {
-                                            current_server.create(target_handler, filename, current_server.CREATE_GUARDED, {mode: stats.mode & parseInt('777',8)}, (err, object, obj_attrs) => {
+                                            servers[id][queue].create(target_handler, filename, servers[id][queue].CREATE_GUARDED, {mode: stats.mode & parseInt('777',8)}, (err, object, obj_attrs) => {
                                                 readStream = fs.createReadStream(source, { highWaterMark: 32 * 1024 });
                                                 readStream.pipe(passThrough);
                                                 readStream.on('close', () => {
                                                     if (stopped) reject_transfer("Task has been cancelled");
                                                     else {
                                                         if (params.direct) resolve_transfer();
-                                                        else current_server.rename(target_handler, filename, final_handler, filename, err => {
+                                                        else servers[id][queue].rename(target_handler, filename, final_handler, filename, err => {
                                                             if (err) reject_transfer(err);
                                                             else resolve_transfer();
                                                         });
@@ -181,7 +180,7 @@ module.exports = (actions, config) => {
                                                 passThrough.pipe(new (require('stream').Writable)({
                                                     write(data, encoding, callback) {
                                                         transferred += data.length;
-                                                        current_server.write(object, data.length, transferred, current_server.WRITE_UNSTABLE, data, (err, commited, count, verf, wcc) => {
+                                                        servers[id][queue].write(object, data.length, transferred, servers[id][queue].WRITE_UNSTABLE, data, (err, commited, count, verf, wcc) => {
                                                             if (err) callback(err);
                                                             else {
                                                                 if (params.publish) {
@@ -204,7 +203,7 @@ module.exports = (actions, config) => {
                                             if (err && err.file_exists) config.logger.info(target + " already exists");
                                             else if (err && err.tmp_exists && !params.direct) {
                                                 config.logger.info(target + " already exists. Moving to final destination");
-                                                return new Promise((resolve_rename, reject_rename) => current_server.rename(target_handler, filename, final_handler, filename, err => {
+                                                return new Promise((resolve_rename, reject_rename) => servers[id][queue].rename(target_handler, filename, final_handler, filename, err => {
                                                     if (err) reject_rename(err);
                                                     else resolve_rename();
                                                 }))
@@ -212,14 +211,13 @@ module.exports = (actions, config) => {
                                             else {
                                                 if (reject_pause) reject_pause(err);
                                                 reject(err);
-                                                if (current_server) current_server.remove(target_handler, filename, err => err && config.logger.error("Could not remove unfinished destination: ", err));
+                                                servers[id][queue].remove(target_handler, filename, err => err && config.logger.error("Could not remove unfinished destination: ", err));
                                             }
                                         })
                                         .then(() => {
                                             resolve();
                                             pending[id]--;
-                                            if (queue >= parallel_connections && current_server) current_server.unmount(err => err && self.logger.error("Error disconnecting NFS mount: ", err));
-                                            else servers[id][queue] = current_server;
+                                            if (queue >= parallel_connections && servers[id][queue]) servers[id][queue].unmount(err => err && self.logger.error("Error disconnecting NFS mount: ", err));
                                             return queue;
                                         });
                                     resolve_arbiter();

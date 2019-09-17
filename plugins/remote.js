@@ -105,38 +105,35 @@ module.exports = (actions, config) => {
                             return Promise.race(queues[id])
                                 .then(queue => {
                                     let reject_execution;
-                                    let current_server = servers[id][queue];
                                     queues[id][queue] = Promise.resolve(queues[id][queue])
                                         .then(() => logs.reduce((p, log) => p.then(() => log && log.path && fs.ensureDir(path.dirname(log.path))), Promise.resolve()))
                                         .then(() => {
                                             return new Promise((resolve_session, reject_session) => {
                                                 return new Promise((resolve_connection, reject_connection) => {
-                                                    if (current_server) resolve_connection();
+                                                    if (servers[id][queue]) resolve_connection();
                                                     else {
                                                         let client = new Client();
                                                         client
                                                             .on('ready', () => {
-                                                                current_server = client;
+                                                                config.logger.info("SSH connection established with " + params.host + " (Queue: " + queue + ")");
+                                                                servers[id][queue] = client;
                                                                 resolve_connection();
                                                             })
                                                             .on('error', err => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                config.logger.error("SSH connection to host " + params.host + " failed with error: ", err);
-                                                                reject_connection("SSH connection error: " + err);
-                                                                reject_session("SSH connection error: " + err);
+                                                                config.logger.error("SSH connection to host " + params.host + " (Queue: " + queue + ") failed with error: ", err);
+                                                                reject_connection("SSH connection to host " + params.host + " (Queue: " + queue + ") error: " + err);
+                                                                reject_session("SSH connection to host " + params.host + " (Queue: " + queue + ") error: " + err);// we need to reject session promise because connection promise might have already been resolved
                                                             })
                                                             .on('end', () => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                reject_connection("SSH connection ended to host " + params.host);
-                                                                reject_session("SSH connection ended to host " + params.host);
+                                                                reject_connection("SSH connection ended to host " + params.host + " (Queue: " + queue + ")");
+                                                                reject_session("SSH connection ended to host " + params.host + " (Queue: " + queue + ")");
                                                             })
                                                             .on('close', had_error => {
-                                                                current_server = null;
                                                                 servers[id][queue] = null;
-                                                                reject_connection("SSH connection lost to host " + params.host + ". Due to error: " + had_error);
-                                                                reject_session("SSH connection lost to host " + params.host + ". Due to error: " + had_error);
+                                                                reject_connection("SSH connection lost to host " + params.host + " (Queue: " + queue + "). Due to error: " + had_error);
+                                                                reject_session("SSH connection lost to host " + params.host + " (Queue: " + queue + "). Due to error: " + had_error);
                                                             })
                                                             .connect(parameters);
                                                     }
@@ -162,12 +159,12 @@ module.exports = (actions, config) => {
                                                                 config.logger.debug("Executing on " + params.host + ":" + cmd);
                                                                 return new Promise((resolve_execution, reject) => {
                                                                     reject_execution = reject;
-                                                                    current_server.exec("echo 'PROCESS_PID='$$; exec " + cmd, {pty: true, ...(params.options || {})}, (err, stream) => {
+                                                                    if (servers[id][queue]) servers[id][queue].exec("echo 'PROCESS_PID='$$; exec " + cmd, {pty: true, ...(params.options || {})}, (err, stream) => {
                                                                         if (err) reject_execution(err);
                                                                         else {
                                                                             let removeExitHandler = onExit(() => {
                                                                                 stream.close();
-                                                                                current_server.end();
+                                                                                if (servers[id][queue]) servers[id][queue].end();
                                                                             });
 
                                                                             stream.on('close', (code, signal) => {
@@ -188,12 +185,17 @@ module.exports = (actions, config) => {
                                                                                 if (stderr_log) stderr_log.write(data);
                                                                             });
                                                                         }
-                                                                    })
+                                                                    });
+                                                                    else reject_execution("Not connected");
                                                                 })
                                                             })
                                                             .then(() => {
                                                                 reject_execution = null;
                                                                 process_pid = null;
+                                                            })
+                                                            .catch(err => {
+                                                                config.logger.error("Error executing on " + params.host + ":" + cmd, err);
+                                                                throw err;
                                                             })
                                                     }, Promise.resolve());
                                                 })
@@ -213,8 +215,7 @@ module.exports = (actions, config) => {
                                             resolve(parser && parser.data);
                                             if (logs.length) setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000);
                                             pending[id]--;
-                                            if (queue >= parallel_connections && current_server) current_server.end();
-                                            else servers[id][queue] = current_server;
+                                            if (queue >= parallel_connections && servers[id][queue]) servers[id][queue].end();
                                             return queue;
                                         });
                                     resolve_arbiter();

@@ -89,8 +89,7 @@ module.exports = (actions, config) => {
                         return new Promise(resolve_arbiter => {
                             return Promise.race(queues[id])
                                 .then(queue => {
-                                    let current_server = servers[id][queue];
-                                    if (!current_server) current_server = new Client(parameters);
+                                    if (!servers[id][queue]) servers[id][queue] = new Client(parameters);
                                     queues[id][queue] = Promise.resolve(queues[id][queue])
                                         .then(() => {
                                             if (params.job_id && params.controllable && config.controllers) {
@@ -109,11 +108,11 @@ module.exports = (actions, config) => {
                                             stats = result;
                                             if (stats.isDirectory()) throw "Cannot copy directory";
                                             return new Promise((resolve_target, reject_target) => {
-                                                current_server.getSize(target.replace(/\//g, "\\"), (err, size) => {
+                                                servers[id][queue].getSize(target.replace(/\//g, "\\"), (err, size) => {
                                                     if (err) resolve_target();
                                                     else {
                                                         if (size === stats.size) reject_target({file_exists: true}) ;
-                                                        else resolve_target(current_server.unlink(target.replace(/\//g, "\\")))
+                                                        else resolve_target(servers[id][queue].unlink(target.replace(/\//g, "\\")))
                                                     }
                                                 })
                                             })
@@ -121,7 +120,7 @@ module.exports = (actions, config) => {
                                         .then(() => {
                                             if (params.direct) {
                                                 if (path.posix.dirname(target) === "." || path.posix.dirname(target) === "/") return;
-                                                return current_server.mkdir(path.posix.dirname(target).replace(/\//g, "\\"))
+                                                return servers[id][queue].mkdir(path.posix.dirname(target).replace(/\//g, "\\"))
                                                     .catch(err => {
                                                         if (err && err.code === 'STATUS_OBJECT_NAME_COLLISION') return;
                                                         throw err;
@@ -130,21 +129,21 @@ module.exports = (actions, config) => {
                                             final = target;
                                             target = path.posix.join(path.posix.dirname(target), ".tmp", path.posix.basename(target));
                                             return new Promise((resolve_target, reject_target) => {
-                                                current_server.getSize(target.replace(/\//g, "\\"), (err, size) => {
+                                                servers[id][queue].getSize(target.replace(/\//g, "\\"), (err, size) => {
                                                     if (err) resolve_target();
                                                     else {
                                                         if (size === stats.size) reject_target({tmp_exists: true}) ;
-                                                        else resolve_target(current_server.unlink(target.replace(/\//g, "\\")));
+                                                        else resolve_target(servers[id][queue].unlink(target.replace(/\//g, "\\")));
                                                     }
                                                 })
                                             })
-                                            .then(() => current_server.mkdir(path.posix.dirname(target).replace(/\//g, "\\")).catch(err => {
+                                            .then(() => servers[id][queue].mkdir(path.posix.dirname(target).replace(/\//g, "\\")).catch(err => {
                                                 if (err && err.code === 'STATUS_OBJECT_NAME_COLLISION') return;
                                                 throw err;
                                             }))
 
                                         })
-                                        .then(() => current_server.createWriteStream(target.replace(/\//g, "\\")))
+                                        .then(() => servers[id][queue].createWriteStream(target.replace(/\//g, "\\")))
                                         .then(stream => new Promise((resolve_transfer, reject_transfer) => {
                                             writeStream = stream;
                                             readStream = fs.createReadStream(source);
@@ -153,7 +152,7 @@ module.exports = (actions, config) => {
                                                 if (stopped) reject_transfer("Task has been cancelled");
                                                 else {
                                                     if (params.direct) resolve_transfer();
-                                                    else resolve_transfer(current_server.rename(target.replace(/\//g, "\\"), final.replace(/\//g, "\\")));
+                                                    else resolve_transfer(servers[id][queue].rename(target.replace(/\//g, "\\"), final.replace(/\//g, "\\")));
                                                 }
                                             });
                                             writeStream.on('error', err => reject_transfer(err));
@@ -181,19 +180,18 @@ module.exports = (actions, config) => {
                                             if (err && err.file_exists) config.logger.info(target + " already exists");
                                             else if (err && err.tmp_exists && !params.direct) {
                                                 config.logger.info(target + " already exists. Moving to final destination");
-                                                return current_server.rename(target.replace(/\//g, "\\"), final.replace(/\//g, "\\"));
+                                                return servers[id][queue].rename(target.replace(/\//g, "\\"), final.replace(/\//g, "\\"));
                                             }
                                             else {
                                                 if (reject_pause) reject_pause(err);
                                                 reject(err);
-                                                if (current_server) return current_server.unlink(target.replace(/\//g, "\\")).catch(error => error && config.logger.error("Could not remove unfinished destination: ", error));
+                                                return servers[id][queue].unlink(target.replace(/\//g, "\\")).catch(error => error && config.logger.error("Could not remove unfinished destination: ", error));
                                             }
                                         })
                                         .then(() => {
                                             resolve();
                                             pending[id]--;
-                                            if (queue >= parallel_connections && current_server) current_server.disconnect();
-                                            else servers[id][queue] = current_server;
+                                            if (queue >= parallel_connections && servers[id][queue]) servers[id][queue].disconnect();
                                             return queue;
                                         });
                                     resolve_arbiter();
