@@ -21,7 +21,7 @@ module.exports = (actions, config) => {
             if (!params.target_is_filename) target = path.posix.join(target, file.filename);
 
             let S3 = new aws.S3();
-            let src_stats;
+            let size, final;
             let source = params.source || './';
             source = sprintf(source, file);
             if (!params.source_is_filename) source = path.posix.join(source, file.filename);
@@ -56,43 +56,92 @@ module.exports = (actions, config) => {
                     S3.headObject({Bucket: params.bucket, Key: source}, (err, data) => {
                         if (err) reject({not_found: true});
                         else {
-                            src_stats = data;
+                            size = data.ContentLength;
                             resolve();
                         }
                     })
                 })
-                .then(() => new Promise((resolve, reject) => {
-                    fs.stat(target, (err, stats) => {
-                        if (err) resolve();
-                        else {
-                            if (src_stats.ContentLength == stats.size) reject({file_exists: true});
-                            else resolve();
+                .then(() => fs.stat(target).catch(() => {}))
+                .then(stats_target => {
+                    if (stats_target) {
+                        if (stats_target.isDirectory()) throw "Target exists and is a directory";
+                        else if (size === stats_target.size) throw {file_exists: true};
+                        else return fs.remove(target);
+                    }
+                })
+                .then(() => {
+                    if (params.direct) return fs.ensureDir(path.posix.dirname(target));
+                    final = target;
+                    target = path.posix.join(path.posix.dirname(target), ".tmp", path.posix.basename(target));
+                    return fs.stat(target).catch(() => {})
+                        .then(stats_target => {
+                            if (stats_target) {
+                                if (stats_target.isDirectory()) throw "Temporary target exists and is a directory";
+                                else if (file.size == stats_target.size) throw {tmp_exists: true};
+                                else return fs.remove(target);
+                            }
+                        })
+                        .then(() => fs.ensureDir(path.posix.dirname(target)));
+                })
+                .then(() => {
+                    if (params.job_id && params.controllable && config.controllers) {
+                        if (config.controllers[params.job_id].value === "stop") throw "Task has been cancelled";
+                        if (config.controllers[params.job_id].value === "pause") {
+                            config.logger.info("Copy paused: ", source);
+                            return new Promise((resolve, reject) => {
+                                resolve_pause = resolve;
+                                reject_pause = reject;
+                            });
                         }
-                    });
-                }))
+                    }
+                })
                 .then(() => new Promise((resolve, reject) => {
-                    let fileStream = fs.createWriteStream(target);
-                    fileStream.on('error', err => reject(err));
-                    let result = S3.getObject({Bucket: params.bucket, Key: source});
-                    let percentage = 0;
-                    if (params.publish) result.on('httpDownloadProgress', event => {
-                        let tmp = Math.round(event.loaded * 100 / event.total);
-                        if (percentage != tmp) {
-                            percentage = tmp;
-                            params.publish({
-                                current: event.loaded,
-                                total: event.total,
-                                percentage: percentage
+                    writeStream = fs.createWriteStream(target);
+                    writeStream.on('close', () => {
+                        if (params.direct) resolve();
+                        else {
+                            fs.rename(target, final, err => {
+                                if (err) reject(err);
+                                else resolve();
                             });
                         }
                     });
-                    fileStream.on('close', () => resolve());
-                    fileStream.on('error', err => reject(err));
-                    result.createReadStream().pipe(passThrough);
-                    passThrough.pipe(fileStream);
+                    writeStream.on('error', err => reject(err));
+
+                    let result = S3.getObject({Bucket: params.bucket, Key: source});
+                    readStream = result.createReadStream();
+                    readStream.on('error', err => reject(err));
+                    readStream.pipe(passThrough);
+                    passThrough.pipe(writeStream);
+
+                    if (params.publish) {
+                        let percentage = 0;
+                        result.on('httpDownloadProgress', event => {
+                            let tmp = Math.round(event.loaded * 100 / event.total);
+                            if (percentage != tmp) {
+                                percentage = tmp;
+                                params.publish({
+                                    current: event.loaded,
+                                    total: event.total,
+                                    percentage: percentage
+                                });
+                            }
+                        });
+                    }
                 }))
                 .catch(err => {
+                    if (readStream) readStream.destroy();
+                    if (writeStream) writeStream.destroy();
                     if (err && err.file_exists) return config.logger.info(target + " already exists");
+                    else if (err && err.tmp_exists && !params.direct) {
+                        config.logger.info(target + " already exists. Moving to final destination");
+                        return new Promise((resolve, reject) => {
+                            fs.rename(target, final, err => {
+                                if (err) reject(err);
+                                else resolve();
+                            });
+                        });
+                    }
                     throw err;
                 });
         };

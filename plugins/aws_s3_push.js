@@ -19,7 +19,6 @@ module.exports = (actions, config) => {
             source = sprintf(source, file);
             if (!params.source_is_filename) source = path.posix.join(source, file.filename);
 
-            let src_stats;
             let target = params.target || './';
             target = sprintf(target, file);
             if (!params.target_is_filename) target = path.posix.join(target, file.filename);
@@ -33,7 +32,7 @@ module.exports = (actions, config) => {
                 if (params.region || region) aws.config.update({region: params.region || region});
             }
 
-            let resolve_pause, reject_pause, fileStream;
+            let resolve_pause, reject_pause, fileStream, stats;
             let passThrough = new (require('stream')).PassThrough();//we use PassThrough because once we pipe filestream, pause will not have any effect
             if (params.job_id && params.controllable && config.controllers) {
                 if (!config.controllers.hasOwnProperty(params.job_id)) config.controllers[params.job_id] = {value: "resume"};
@@ -67,24 +66,20 @@ module.exports = (actions, config) => {
                     });
                 })
                 .catch(err => config.logger.error("Error creating AWS S3 bucket: ", err))
-                .then(() => new Promise((resolve, reject) => {
-                    fs.stat(source, (err, stats) => {
-                        if (err) reject({not_found: true});
-                        else {
-                            src_stats = stats;
-                            resolve();
-                        }
-                    });
-                }))
-                .then(() => new Promise((resolve, reject) => {
-                    S3.headObject({Bucket: params.bucket, Key: target}, (err, data) => {
-                        if (err) resolve();
-                        else {
-                            if (data.ContentLength == src_stats.size) reject({file_exists: true});
-                            else resolve();
-                        }
+                .then(() => fs.stat(source))
+                .then(result => {
+                    stats = result;
+                    if (stats.isDirectory()) throw "Cannot copy directory";
+                    return new Promise((resolve, reject) => {
+                        S3.headObject({Bucket: params.bucket, Key: target}, (err, data) => {
+                            if (err) resolve();
+                            else {
+                                if (data.ContentLength === stats.size) reject({file_exists: true});
+                                else resolve();
+                            }
+                        })
                     })
-                }))
+                })
                 .then(() => {
                     if (params.job_id && params.controllable && config.controllers) {
                         if (config.controllers[params.job_id].value === "stop") throw "Task has been cancelled";
@@ -100,7 +95,9 @@ module.exports = (actions, config) => {
                 .then(() => new Promise((resolve, reject) => {
                     fileStream = fs.createReadStream(source);
                     fileStream.on('error', err => reject(err));
-                    let options = params.options || {partSize: 5 * 1024 * 1024, queueSize: 5};
+                    let partSize = 50 * 1024 * 1024;
+                    while (stats.size / partSize > 10000) partSize *= 2;
+                    let options = params.options || {partSize: partSize, queueSize: params.concurrency || 8};
                     let result = S3.upload({Bucket: params.bucket, Key: target, Body: passThrough, ContentType: mime.lookup(source)}, options, (err,data) => {
                         if (err) reject(err);
                         else resolve();
@@ -108,12 +105,12 @@ module.exports = (actions, config) => {
                     fileStream.pipe(passThrough);
                     let percentage = 0;
                     if (params.publish) result.on('httpUploadProgress', event => {
-                        let tmp = Math.round(event.loaded * 100 / (event.total || file.size));
+                        let tmp = Math.round(event.loaded * 100 / (event.total || stats.size || file.size));
                         if (percentage != tmp) {
                             percentage = tmp;
                             params.publish({
                                 current: event.loaded,
-                                total: event.total || file.size,
+                                total: event.total || stats.size || file.size,
                                 percentage: percentage
                             });
                         }

@@ -81,44 +81,42 @@ module.exports = (actions, config) => {
                         }
                     }
                 })
-                .then(() => {
-                    return new Promise((resolve, reject) => {
-                        writeStream = fs.createWriteStream(target);
-                        writeStream.on('close', () => {
-                            if (params.direct) resolve();
-                            else {
-                                fs.rename(target, final, err => {
-                                    if (err) reject(err);
-                                    else resolve();
-                                });
-                            }
-                        });
-                        writeStream.on('error', err => reject(err));
-
-                        readStream = request({url: source, retry: 0, method: "GET", stream: true});
-                        readStream.on('response', response => {
-                            if (response.statusCode !== 200) return reject('Response status was ' + response.statusCode);
-                            if (!size && response.headers && response.headers['content-length']) size = parseInt(response.headers['content-length'], 10);
-                        });
-                        readStream.on('error', err => reject(err));
-                        readStream.pipe(passThrough);
-                        passThrough.pipe(writeStream);
-
-                        if (params.publish) {
-                            let transferred = 0;
-                            let percentage = 0;
-                            readStream.on('data', data => {
-                                if (!size) return;
-                                transferred += data.length;
-                                let tmp = Math.round(transferred * 100 / size);
-                                if (percentage != tmp) {
-                                    percentage = tmp;
-                                    params.publish({current: transferred, total: size, percentage: percentage});
-                                }
+                .then(() => new Promise((resolve, reject) => {
+                    writeStream = fs.createWriteStream(target);
+                    writeStream.on('close', () => {
+                        if (params.direct) resolve();
+                        else {
+                            fs.rename(target, final, err => {
+                                if (err) reject(err);
+                                else resolve();
                             });
                         }
-                    })
-                })
+                    });
+                    writeStream.on('error', err => reject(err));
+
+                    readStream = request({url: source, retry: 0, method: "GET", stream: true});
+                    readStream.on('response', response => {
+                        if (response.statusCode !== 200) return reject('Response status was ' + response.statusCode);
+                        if (!size && response.headers && response.headers['content-length']) size = parseInt(response.headers['content-length'], 10);
+                    });
+                    readStream.on('error', err => reject(err));
+                    readStream.pipe(passThrough);
+                    passThrough.pipe(writeStream);
+
+                    if (params.publish) {
+                        let transferred = 0;
+                        let percentage = 0;
+                        readStream.on('data', data => {
+                            if (!size) return;
+                            transferred += data.length;
+                            let tmp = Math.round(transferred * 100 / size);
+                            if (percentage != tmp) {
+                                percentage = tmp;
+                                params.publish({current: transferred, total: size, percentage: percentage});
+                            }
+                        });
+                    }
+                }))
                 .catch(err => {
                     if (readStream) readStream.destroy();
                     if (writeStream) writeStream.destroy();

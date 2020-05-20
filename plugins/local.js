@@ -9,7 +9,7 @@ module.exports = (actions, config) => {
             if (!params || !params.cmd) throw "Missing command line";
             params.cmd = [].concat(params.cmd);
             let parser;
-            let logs = [], stderr_log, stdout_log, stdall_log;
+            let logs = [], stderr_log, stdout_log;
             let resolve_pause, reject_pause, child;
 
             if (params.logs && params.logs.stdout) logs.push({filename: path.basename(params.logs.stdout), path: params.logs.stdout});
@@ -64,7 +64,6 @@ module.exports = (actions, config) => {
                         config.logger.debug("Executing " + params.cmd);
                         if (params.logs && params.logs.stdout) stdout_log = fs.createWriteStream(params.logs.stdout);
                         if (params.logs && params.logs.stderr) stderr_log = fs.createWriteStream(params.logs.stderr);
-                        if (params.logs && params.logs.stdall) stdall_log = fs.createWriteStream(params.logs.stdall);
                     })
                     .then(() => {
                         return params.cmd.reduce((p, cmd) => {
@@ -84,17 +83,16 @@ module.exports = (actions, config) => {
                                 .then(() => {
                                     let command_line = shlex(cmd);
                                     child = spawn(command_line.shift(), command_line, {buffer: false, ...(params.options || {})});
-                                    child.all.on('data', data => {
-                                        if (stdall_log) stdall_log.write(data);
-                                    });
-                                    child.stderr.on('data', data => {
-                                        if (parser) parser.parse(data);
-                                        if (stderr_log) stderr_log.write(data);
-                                    });
-                                    child.stdout.on('data', data => {
-                                        if (parser) parser.parse(data);
-                                        if (stdout_log) stdout_log.write(data);
-                                    });
+                                    if (parser || logs.length) {
+                                        child.stderr.on('data', data => {
+                                            if (parser) parser.parse(data);
+                                            if (stderr_log) stderr_log.write(data);
+                                        });
+                                        child.stdout.on('data', data => {
+                                            if (parser) parser.parse(data);
+                                            if (stdout_log) stdout_log.write(data);
+                                        });
+                                    }
                                     if (params.priority) {
                                         let renice = spawn('renice', [params.priority, '-p', child.pid], {buffer: false});
                                         //renice.stdout.pipe(process.stdout);
@@ -115,7 +113,6 @@ module.exports = (actions, config) => {
                     })
                     .then(() => stdout_log && new Promise(resolve => stdout_log.end(resolve)))
                     .then(() => stderr_log && new Promise(resolve => stderr_log.end(resolve)))
-                    .then(() => stdall_log && new Promise(resolve => stdall_log.end(resolve)))
                     .then(() => logs.length && setTimeout(() => logs.forEach(log => fs.remove(log.path).catch(err => config.logger.error("Could not remove stdout log file: " + err))), 30000));
             });
         };

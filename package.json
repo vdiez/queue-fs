@@ -7,20 +7,20 @@
     "node-nfsc": "github:scality/node-nfsc"
   },
   "dependencies": {
-    "@marsaud/smb2": "^0.14.0",
-    "aws-sdk": "^2.548.0",
-    "execa": "^2.1.0",
+    "@marsaud/smb2": "^0.16.0",
+    "aws-sdk": "^2.622.0",
+    "execa": "^4.0.0",
     "fs-extra": "^8.1.0",
     "ftp": "^0.3.10",
-    "got": "^9.6.0",
-    "mime-types": "^2.1.24",
+    "got": "^10.6.0",
+    "mime-types": "^2.1.26",
     "moment": "^2.24.0",
-    "nodemailer": "^6.3.1",
+    "nodemailer": "^6.4.2",
     "shlex": "^2.0.1",
     "signal-exit": "^3.0.2",
-    "simple_wamp": "2.0.5",
+    "simple_wamp": "2.0.6",
     "sprintf-js": "github:vdiez/sprintf.js",
-    "ssh2": "^0.8.5"
+    "ssh2": "^0.8.7"
   },
   "devDependencies": {},
   "scripts": {
