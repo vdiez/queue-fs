@@ -126,7 +126,7 @@ module.exports = (actions, config) => {
                                             }
                                             else if (err.tmp_exists && !params.direct) {
                                                 config.logger.info(target + " already exists. Moving to final destination");
-                                                return source_connection.move(target, final)
+                                                return source_connection.move(target, final, stats?.size || file.size, params)
                                                     .then(() => done = true)
                                                     .catch(err => {
                                                         config.logger.info("Moving '" + target + "' to final destination failed. Error: ", err);
@@ -176,7 +176,7 @@ module.exports = (actions, config) => {
                                         })
                                         .then(() => {
                                             if (stopped) throw "Task has been cancelled";
-                                            if (!params.direct) return target_connection.move(target, final);
+                                            if (!params.direct) return target_connection.move(target, final, stats?.size || file.size, params);
                                         })
                                         .catch(err => {
                                             streams.readStream?.destroy();
@@ -197,7 +197,7 @@ module.exports = (actions, config) => {
                                             else if (err.file_exists) config.logger.info(target + " already exists");
                                             else if (err.tmp_exists && !params.direct) {
                                                 config.logger.info(target + " already exists. Moving to final destination");
-                                                return target_connection.move(target, final).catch(err => {
+                                                return target_connection.move(target, final, stats?.size || file.size, params).catch(err => {
                                                     config.logger.info("Moving '" + target + "' to final destination failed. Error: ", err);
                                                     throw err;
                                                 });

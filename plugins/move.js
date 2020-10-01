@@ -74,7 +74,7 @@ module.exports = (actions, config) => {
                                                 })
                                                 .then(() => source_connection.mkdir(path.posix.dirname(target)));
                                         })
-                                        .then(() => source_connection.move(source, target, params))
+                                        .then(() => source_connection.move(source, target, stats?.size || file.size, params))
                                         .catch(err => {
                                             if (err) {
                                                 if (err.is_directory) {
@@ -99,7 +99,7 @@ module.exports = (actions, config) => {
                                                 }
                                                 else if (err.tmp_exists && !params.direct) {
                                                     config.logger.info(target + " already exists. Moving to final destination");
-                                                    return source_connection.move(target, final)
+                                                    return source_connection.move(target, final, stats?.size || file.size, params)
                                                         .then(() => {
                                                             done = true;
                                                             return source_connection.remove(source).catch(err => config.logger.error("Could not remove source after move: ", err));
@@ -153,7 +153,7 @@ module.exports = (actions, config) => {
                                             .then(() => source_connection.remove(source).catch(err => config.logger.error("Could not remove source after move: ", err)))
                                             .then(() => {
                                                 if (stopped) throw "Task has been cancelled";
-                                                if (!params.direct) return target_connection.move(target, final);
+                                                if (!params.direct) return target_connection.move(target, final, stats?.size || file.size, params);
                                             })
                                             .catch(err => {
                                                 streams.readStream?.destroy();
@@ -177,7 +177,7 @@ module.exports = (actions, config) => {
                                                 }
                                                 else if (err.tmp_exists && !params.direct) {
                                                     config.logger.info(target + " already exists. Moving to final destination");
-                                                    return target_connection.move(target, final)
+                                                    return target_connection.move(target, final, stats?.size || file.size, params)
                                                         .then(() => source_connection.remove(source).catch(err => config.logger.error("Could not remove source after move: ", err)))
                                                         .catch(err => {
                                                             config.logger.info("Moving '" + target + "' to final destination failed. Error: ", err);
