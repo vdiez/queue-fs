@@ -2,7 +2,7 @@ let queues = {};
 let servers = {};
 let arbiter = {};
 let pending = {};
-let protoclients = require('../../../protoclients');
+let protoclients = require('protoclients');
 let parallel_connections;
 
 module.exports = (params, logger) => {
@@ -41,7 +41,7 @@ module.exports = (params, logger) => {
                         .then(queue => {
                             queues[id][queue] = Promise.resolve(queues[id][queue])
                                 .then(() => {
-                                    if (!servers[id][queue]) servers[id][queue] = new protoclients.get({logger: logger, protocol: params.protocol, params});
+                                    if (!servers[id][queue]) servers[id][queue] = protoclients({logger: logger, protocol: params.protocol, params});
                                     return new Promise(resolve_slot => resolve({connection: servers[id][queue], resolve_slot}))
                                 })
                                 .then(() => {
