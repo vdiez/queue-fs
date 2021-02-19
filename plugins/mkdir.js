@@ -1,6 +1,6 @@
 let path = require('path');
 let endpoint = require('./helpers/endpoint');
-let connection_limiter = require('./helpers/connection_limiter');
+let protoclients = require('protoclients');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('mkdir')) {
@@ -8,14 +8,8 @@ module.exports = (actions, config) => {
             if (!params) throw "Missing parameters";
             let target = endpoint(file, params, 'target');
 
-            return new Promise((resolve_session, reject_session) =>  connection_limiter(params, config.logger)
-                .then(({connection, resolve_slot}) => connection.mkdir(params.target_is_filename ? path.posix.dirname(target): target)
-                .catch(err => reject_session(err))
-                .then(stats => {
-                    resolve_session(stats);
-                    resolve_slot();
-                })
-            ));
+            let connection = protoclients({params: params, logger: config.logger, protocol: params.protocol})
+            return connection.mkdir(params.target_is_filename ? path.posix.dirname(target): target, params);
         };
     }
     return actions;

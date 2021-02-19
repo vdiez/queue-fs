@@ -1,24 +1,18 @@
 let endpoint = require('./helpers/endpoint');
-let connection_limiter = require('./helpers/connection_limiter');
+let protoclients = require('protoclients');
 
 module.exports = (actions, config) => {
     if (!actions.hasOwnProperty('stat')) {
         actions.stat = (file, params) => {
-            let origin_params = {parallel_connections: params.parallel_connections};
+            let source_params = {parallel_connections: params.parallel_connections};
             for (let param in params) {
-                if (params.hasOwnProperty(param) && param.startsWith('origin_')) origin_params[param.slice(7)] = params[param];
+                if (params.hasOwnProperty(param) && param.startsWith('source_')) source_params[param.slice(7)] = params[param];
             }
 
             let source = endpoint(file, params, 'source');
 
-            return new Promise((resolve_session, reject_session) => connection_limiter(origin_params, config.logger)
-                .then(({connection, resolve_slot}) => connection.stat(source)
-                    .catch(err => reject_session(err))
-                    .then(stats => {
-                        resolve_session(stats);
-                        resolve_slot();
-                    })
-                ));
+            let connection = protoclients({params: source_params, logger: config.logger, protocol: source_params.protocol})
+            return connection.stat(source, source_params)
         };
     }
     return actions;
