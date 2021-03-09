@@ -71,7 +71,7 @@ module.exports = config => {
                                         config.logger.info("Timeout for " + display(actions[i]) + " on file " + file.path);
                                         if (actions[i].timer.action) {
                                             let effect = load_function(actions[i].timer.action);
-                                            if (effect) effect(file, actions[i].timer.params);
+                                            if (effect) effect(file, actions[i].timer);
                                         }
                                         if (actions[i].timer.hard) {
                                             reject_execution("timeout");
@@ -94,21 +94,20 @@ module.exports = config => {
                                         return Promise.resolve(typeof actions[i].params === "function" ? actions[i].params(file) : actions[i].params);
                                     })
                                     .then(params => {
-                                        params = params || {};
+                                        Object.assign(actions[i], params);
                                         if (actions[i].job_id) {
-                                            params.job_id = actions[i].job_id;
-                                            let wamp_router = params.wamp_router || config.default_router;
-                                            if (wamp_router && params.progress) {
+                                            let wamp_router = actions[i].wamp_router || config.default_router;
+                                            if (wamp_router && actions[i].progress) {
                                                 let router = wamp({router: wamp_router, logger: config.logger});
                                                 publish = content => {
                                                     content.current_step = i + 1;
                                                     content.total_steps = actions.length;
-                                                    router.run('publish', [params.progress_topic || 'task_progress', [actions[i].job_id, content]]);
+                                                    router.run('publish', [actions[i].progress_topic || 'task_progress', [actions[i].job_id, content]]);
                                                 };
-                                                params.publish = publish;
+                                                actions[i].publish = publish;
                                             }
                                         }
-                                        return method(file, params);
+                                        return method(file, actions[i]);
                                     })
                                     .then(result => {
                                         if (actions[i].loop_while && typeof actions[i].loop_while === "function") {

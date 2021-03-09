@@ -12,8 +12,8 @@ module.exports = (actions, config) => {
             let source = endpoint(file, params, 'source');
 
             let connection = protoclients({params: source_params, logger: config.logger, protocol: source_params.protocol})
-            return connection.stat(source, source_params)
-                .then(() => connection.write(source, source_params))
+            //return connection.stat(source, source_params).then(() => connection.write(source, source_params))
+            return connection.write(source, params.contents || "", source_params);
         };
     }
     return actions;

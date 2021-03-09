@@ -1,11 +1,9 @@
 let sprintf = require('sprintf-js').sprintf;
 let path = require('path');
+let defaults = {source: '%(dirname)s', target: ''}
 
 module.exports = (file, params, endpoint) => {
-    if (params?.hasOwnProperty(endpoint)) {
-        let uri = sprintf(params[endpoint], file);
-        if (!params[endpoint + '_is_filename']) uri = path.posix.join(uri, file.filename);
-        return uri;
-    }
-    return path.posix.join(file.dirname, file.filename);
+    let uri = sprintf((params?.hasOwnProperty(endpoint)) ? params[endpoint] : defaults[endpoint], file);
+    if (params[endpoint + '_is_filename'] === false) uri = path.posix.join(uri, file.filename);
+    return uri;
 }

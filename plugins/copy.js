@@ -39,7 +39,6 @@ module.exports = (actions, config) => {
                     }
                 };
             }
-
             let source_connection = protoclients({params: source_params, logger: config.logger, protocol: source_params.protocol})
             return source_connection.stat(source, source_params)
                 .then(result => {
